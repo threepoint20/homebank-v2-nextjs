@@ -1,4 +1,4 @@
-import { put, head, del } from '@vercel/blob';
+import { put, head, del, list } from '@vercel/blob';
 
 // Vercel Blob 資料庫層
 class BlobDatabase {
@@ -9,9 +9,16 @@ class BlobDatabase {
   private async getBlobUrl(filename: string): Promise<string | null> {
     const key = this.getKey(filename);
     try {
-      const blob = await head(key);
-      return blob?.url || null;
-    } catch (error) {
+      // 使用 list 來檢查檔案是否存在
+      const { blobs } = await list({ prefix: key, limit: 1 });
+      
+      if (blobs.length === 0) {
+        return null;
+      }
+      
+      return blobs[0].url;
+    } catch (error: any) {
+      console.error(`取得 Blob URL 失敗 (${filename}):`, error);
       return null;
     }
   }
@@ -25,18 +32,21 @@ class BlobDatabase {
       
       if (!blobUrl) {
         // 如果檔案不存在，返回空陣列
+        console.log(`📄 ${filename} 不存在，返回空陣列`);
         return [];
       }
 
       const response = await fetch(blobUrl);
       if (!response.ok) {
+        console.error(`❌ 讀取 ${filename} 失敗: HTTP ${response.status}`);
         return [];
       }
 
       const data = await response.json();
+      console.log(`✅ 成功讀取 ${filename}, 項目數: ${data.length}`);
       return data;
     } catch (error) {
-      console.error(`讀取 ${filename} 失敗:`, error);
+      console.error(`❌ 讀取 ${filename} 發生錯誤:`, error);
       return [];
     }
   }
@@ -47,15 +57,23 @@ class BlobDatabase {
     try {
       // 將資料轉換為 JSON 字串
       const jsonString = JSON.stringify(data, null, 2);
-      const blob = new Blob([jsonString], { type: 'application/json' });
 
-      // 上傳到 Vercel Blob
-      await put(key, blob, {
+      // 上傳到 Vercel Blob - 直接使用字串
+      const result = await put(key, jsonString, {
         access: 'public',
         addRandomSuffix: false,
+        contentType: 'application/json',
       });
-    } catch (error) {
-      console.error(`寫入 ${filename} 失敗:`, error);
+      
+      console.log(`✅ 成功寫入 ${filename}, URL: ${result.url}`);
+    } catch (error: any) {
+      console.error(`❌ 寫入 ${filename} 失敗:`, error);
+      console.error('錯誤詳情:', {
+        message: error?.message,
+        stack: error?.stack,
+        key,
+        dataLength: data.length
+      });
       throw error;
     }
   }

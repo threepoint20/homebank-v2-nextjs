@@ -26,7 +26,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { email, password, name, avatar } = body;
 
+    console.log('📝 收到新增用戶請求:', { email, name, hasAvatar: !!avatar });
+
     if (!email || !password || !name) {
+      console.error('❌ 缺少必要欄位:', { email: !!email, password: !!password, name: !!name });
       return NextResponse.json(
         { success: false, error: '缺少必要欄位' },
         { status: 400 }
@@ -34,8 +37,10 @@ export async function POST(request: NextRequest) {
     }
 
     // 檢查 email 是否已存在
+    console.log('🔍 檢查 email 是否已存在...');
     const existing = await db.findOne<User>('users.json', (u) => u.email === email);
     if (existing) {
+      console.error('❌ Email 已被使用:', email);
       return NextResponse.json(
         { success: false, error: 'Email 已被使用' },
         { status: 400 }
@@ -53,14 +58,21 @@ export async function POST(request: NextRequest) {
       createdAt: new Date().toISOString(),
     };
 
+    console.log('💾 準備建立新用戶:', { id: newUser.id, email: newUser.email });
     await db.create('users.json', newUser);
+    console.log('✅ 用戶建立成功!');
 
     const { password: _, ...safeUser } = newUser;
     return NextResponse.json({ success: true, user: safeUser });
-  } catch (error) {
-    console.error('新增用戶失敗:', error);
+  } catch (error: any) {
+    console.error('❌ 新增用戶失敗:', error);
+    console.error('錯誤詳情:', {
+      message: error?.message,
+      stack: error?.stack,
+      name: error?.name
+    });
     return NextResponse.json(
-      { success: false, error: '新增用戶失敗' },
+      { success: false, error: `新增用戶失敗: ${error?.message || '未知錯誤'}` },
       { status: 500 }
     );
   }

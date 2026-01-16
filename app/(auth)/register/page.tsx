@@ -30,11 +30,13 @@ export default function RegisterPage() {
       const data = await res.json();
 
       if (data.success) {
+        alert('✅ 註冊成功！即將前往登入頁面');
         router.push('/login');
       } else {
         setError(data.message || '註冊失敗');
       }
     } catch (err) {
+      console.error('註冊錯誤:', err);
       setError('註冊失敗，請稍後再試');
     } finally {
       setLoading(false);
@@ -89,9 +91,11 @@ export default function RegisterPage() {
               value={formData.password}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="••••••••"
+              placeholder="至少 6 個字元"
+              minLength={6}
               required
             />
+            <p className="text-xs text-gray-500 mt-1">密碼至少需要 6 個字元</p>
           </div>
 
           <div>

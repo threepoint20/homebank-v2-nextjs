@@ -1,4 +1,4 @@
-import { put, head, del, list } from '@vercel/blob';
+import { put, del, list } from '@vercel/blob';
 
 // Vercel Blob 資料庫層
 class BlobDatabase {
@@ -55,14 +55,27 @@ class BlobDatabase {
     const key = this.getKey(filename);
     
     try {
+      // 先刪除現有的 Blob（如果存在）
+      try {
+        const existingUrl = await this.getBlobUrl(filename);
+        if (existingUrl) {
+          await del(existingUrl);
+          console.log(`🗑️ 刪除舊的 ${filename}`);
+        }
+      } catch (deleteError) {
+        // 忽略刪除錯誤，繼續寫入
+        console.log(`ℹ️ 無法刪除舊檔案（可能不存在）: ${filename}`);
+      }
+
       // 將資料轉換為 JSON 字串
       const jsonString = JSON.stringify(data, null, 2);
 
-      // 上傳到 Vercel Blob - 直接使用字串
+      // 上傳到 Vercel Blob
       const result = await put(key, jsonString, {
         access: 'public',
-        addRandomSuffix: false,
+        addRandomSuffix: false, // 使用固定的檔名
         contentType: 'application/json',
+        cacheControlMaxAge: 0, // 不快取，確保總是讀取最新資料
       });
       
       console.log(`✅ 成功寫入 ${filename}, URL: ${result.url}`);

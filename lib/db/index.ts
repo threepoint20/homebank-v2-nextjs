@@ -115,19 +115,36 @@ export interface Database {
 
 // 根據環境自動選擇資料庫
 function getDatabase(): Database {
-  const useKV = process.env.KV_REST_API_URL !== undefined;
+  // 優先使用 Vercel Blob
+  const useBlob = process.env.BLOB_READ_WRITE_TOKEN !== undefined;
   
-  if (useKV) {
-    // 動態載入 KV 資料庫
+  if (useBlob) {
+    // 動態載入 Blob 資料庫
     try {
-      const { kvDB } = require('./kv-store');
-      return kvDB;
+      const { blobDB } = require('./blob-store');
+      console.log('✅ 使用 Vercel Blob 資料庫');
+      return blobDB;
     } catch (error) {
-      console.warn('KV 資料庫載入失敗，使用 JSON 檔案系統', error);
+      console.warn('⚠️ Blob 資料庫載入失敗，使用 JSON 檔案系統', error);
       return new JsonDB();
     }
   }
   
+  // 檢查是否使用 KV（向後相容）
+  const useKV = process.env.KV_REST_API_URL !== undefined;
+  
+  if (useKV) {
+    try {
+      const { kvDB } = require('./kv-store');
+      console.log('✅ 使用 Vercel KV 資料庫');
+      return kvDB;
+    } catch (error) {
+      console.warn('⚠️ KV 資料庫載入失敗，使用 JSON 檔案系統', error);
+      return new JsonDB();
+    }
+  }
+  
+  console.log('✅ 使用本地 JSON 檔案系統');
   return new JsonDB();
 }
 

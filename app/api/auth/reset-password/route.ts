@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { User } from '@/lib/types';
 import { PasswordService } from '@/lib/auth/password';
-import { resetTokens } from '../forgot-password/route';
+
+// 取得全域的 resetTokens
+declare global {
+  var resetTokens: Map<string, { userId: string; email: string; expiresAt: number }> | undefined;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,6 +16,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, message: '缺少必要參數' },
         { status: 400 }
+      );
+    }
+
+    const resetTokens = globalThis.resetTokens;
+    
+    if (!resetTokens) {
+      return NextResponse.json(
+        { success: false, message: '系統錯誤：Token 儲存未初始化' },
+        { status: 500 }
       );
     }
 

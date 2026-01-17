@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { resetTokens } from '../forgot-password/route';
+
+// 取得全域的 resetTokens
+declare global {
+  var resetTokens: Map<string, { userId: string; email: string; expiresAt: number }> | undefined;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,6 +14,15 @@ export async function POST(request: NextRequest) {
         { valid: false, message: '缺少 token' },
         { status: 400 }
       );
+    }
+
+    const resetTokens = globalThis.resetTokens;
+    
+    if (!resetTokens) {
+      return NextResponse.json({
+        valid: false,
+        message: '系統錯誤：Token 儲存未初始化',
+      });
     }
 
     const tokenData = resetTokens.get(token);

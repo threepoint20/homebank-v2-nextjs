@@ -1,10 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { User } from '@/lib/types';
-import crypto from 'crypto';
 
 // 儲存重設 token（在生產環境應該使用資料庫）
-const resetTokens = new Map<string, { userId: string; email: string; expiresAt: number }>();
+// 使用全域變數以在 serverless 環境中保持狀態
+declare global {
+  var resetTokens: Map<string, { userId: string; email: string; expiresAt: number }> | undefined;
+}
+
+const resetTokens = globalThis.resetTokens ?? new Map<string, { userId: string; email: string; expiresAt: number }>();
+globalThis.resetTokens = resetTokens;
+
+// 生成隨機 token（不使用 crypto 模組以支援 Edge Runtime）
+function generateToken(): string {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,7 +41,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 生成重設 token
-    const token = crypto.randomBytes(32).toString('hex');
+    const token = generateToken();
     const expiresAt = Date.now() + 60 * 60 * 1000; // 1 小時後過期
 
     // 儲存 token
@@ -138,6 +150,3 @@ async function sendResetEmail(email: string, name: string, resetUrl: string) {
     throw new Error(`Resend API 錯誤: ${error}`);
   }
 }
-
-// 導出 resetTokens 供其他 API 使用
-export { resetTokens };

@@ -108,6 +108,23 @@ export class AuthService {
 
   checkPermission(user: User, action: string): boolean {
     const permissions: Record<UserRole, string[]> = {
+      admin: [
+        // 管理員擁有所有權限
+        'create_job',
+        'edit_job',
+        'delete_job',
+        'approve_job',
+        'create_reward',
+        'edit_reward',
+        'delete_reward',
+        'view_all_users',
+        'manage_points',
+        'change_password',
+        'manage_all_users',
+        'delete_any_user',
+        'reset_user_password',
+        'view_system_stats',
+      ],
       parent: [
         'create_job',
         'edit_job',

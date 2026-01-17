@@ -8,6 +8,7 @@ interface User {
   name: string;
   email: string;
   role: 'parent' | 'child';
+  parentId?: string;
   points?: number;
   avatar?: string;
 }
@@ -18,6 +19,7 @@ interface Reward {
   description: string;
   points: number;
   stock: number;
+  createdBy: string;
   createdAt: string;
 }
 
@@ -50,8 +52,12 @@ export default function RewardShopPage() {
       // 載入獎勵
       const rewardsRes = await fetch('/api/rewards');
       const rewardsData = await rewardsRes.json();
-      if (rewardsData.success) {
-        setRewards(rewardsData.rewards.filter((r: Reward) => r.stock > 0));
+      if (rewardsData.success && user) {
+        // 只顯示自己父母建立的獎勵，且庫存 > 0
+        const filteredRewards = rewardsData.rewards.filter(
+          (r: Reward) => r.stock > 0 && r.createdBy === user.parentId
+        );
+        setRewards(filteredRewards);
       }
 
       // 更新用戶點數

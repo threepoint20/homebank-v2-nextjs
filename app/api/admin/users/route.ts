@@ -3,7 +3,7 @@ import { db } from '@/lib/db';
 import { User } from '@/lib/types';
 import { PasswordService } from '@/lib/auth/password';
 
-// 取得所有用戶
+// 取得所有用戶（包含統計資料）
 export async function GET() {
   try {
     const users = await db.read<User>('users.json');
@@ -11,7 +11,15 @@ export async function GET() {
     // 移除密碼欄位
     const safeUsers = users.map(({ password, ...user }) => user);
     
-    return NextResponse.json({ success: true, users: safeUsers });
+    // 統計資料
+    const stats = {
+      total: users.length,
+      admins: users.filter(u => u.role === 'admin').length,
+      parents: users.filter(u => u.role === 'parent').length,
+      children: users.filter(u => u.role === 'child').length,
+    };
+    
+    return NextResponse.json({ success: true, users: safeUsers, stats });
   } catch (error) {
     console.error('取得用戶失敗:', error);
     return NextResponse.json(
@@ -21,16 +29,15 @@ export async function GET() {
   }
 }
 
-// 新增用戶（子女帳戶）
+// 管理員新增用戶（可以新增任何角色）
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, password, name, avatar, parentId } = body;
+    const { email, password, name, role, avatar } = body;
 
-    console.log('📝 收到新增用戶請求:', { email, name, hasAvatar: !!avatar, parentId });
+    console.log('📝 管理員新增用戶:', { email, name, role });
 
-    if (!email || !password || !name) {
-      console.error('❌ 缺少必要欄位:', { email: !!email, password: !!password, name: !!name });
+    if (!email || !password || !name || !role) {
       return NextResponse.json(
         { success: false, error: '缺少必要欄位' },
         { status: 400 }
@@ -38,10 +45,8 @@ export async function POST(request: NextRequest) {
     }
 
     // 檢查 email 是否已存在
-    console.log('🔍 檢查 email 是否已存在...');
     const existing = await db.findOne<User>('users.json', (u) => u.email === email);
     if (existing) {
-      console.error('❌ Email 已被使用:', email);
       return NextResponse.json(
         { success: false, error: 'Email 已被使用' },
         { status: 400 }
@@ -49,10 +54,8 @@ export async function POST(request: NextRequest) {
     }
 
     // 驗證密碼強度
-    console.log('🔐 驗證密碼強度...');
     const passwordValidation = PasswordService.validatePasswordStrength(password);
     if (!passwordValidation.isValid) {
-      console.error('❌ 密碼強度不足:', passwordValidation.errors);
       return NextResponse.json(
         { 
           success: false, 
@@ -64,7 +67,6 @@ export async function POST(request: NextRequest) {
     }
 
     // 雜湊密碼
-    console.log('🔒 雜湊密碼中...');
     const hashedPassword = await PasswordService.hash(password);
 
     const newUser: User = {
@@ -72,14 +74,12 @@ export async function POST(request: NextRequest) {
       email,
       password: hashedPassword,
       name,
-      role: 'child',
-      parentId: parentId || undefined, // 設定父母 ID
-      points: 0,
+      role,
+      points: role === 'child' ? 0 : undefined,
       avatar: avatar || '',
       createdAt: new Date().toISOString(),
     };
 
-    console.log('💾 準備建立新用戶:', { id: newUser.id, email: newUser.email, parentId: newUser.parentId });
     await db.create('users.json', newUser);
     console.log('✅ 用戶建立成功!');
 
@@ -87,11 +87,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, user: safeUser });
   } catch (error: any) {
     console.error('❌ 新增用戶失敗:', error);
-    console.error('錯誤詳情:', {
-      message: error?.message,
-      stack: error?.stack,
-      name: error?.name
-    });
     return NextResponse.json(
       { success: false, error: `新增用戶失敗: ${error?.message || '未知錯誤'}` },
       { status: 500 }
@@ -99,7 +94,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// 刪除用戶
+// 管理員刪除用戶
 export async function DELETE(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -112,20 +107,11 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // 檢查用戶是否存在
     const user = await db.findOne<User>('users.json', (u) => u.id === id);
     if (!user) {
       return NextResponse.json(
         { success: false, error: '用戶不存在' },
         { status: 404 }
-      );
-    }
-
-    // 不允許刪除父母帳戶
-    if (user.role === 'parent') {
-      return NextResponse.json(
-        { success: false, error: '無法刪除父母帳戶' },
-        { status: 403 }
       );
     }
 
@@ -148,7 +134,7 @@ export async function DELETE(request: NextRequest) {
   }
 }
 
-// 更新用戶（包含頭像）
+// 管理員更新用戶
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
@@ -159,11 +145,6 @@ export async function PUT(request: NextRequest) {
         { success: false, error: '缺少用戶 ID' },
         { status: 400 }
       );
-    }
-
-    // 不允許更新角色
-    if (updates.role) {
-      delete updates.role;
     }
 
     const updatedUser = await db.update<User>('users.json', id, updates);

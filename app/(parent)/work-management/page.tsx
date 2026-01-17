@@ -8,6 +8,7 @@ interface User {
   name: string;
   email: string;
   role: 'parent' | 'child';
+  parentId?: string;
   avatar?: string;
 }
 
@@ -54,6 +55,11 @@ export default function WorkManagementPage() {
   }, [router]);
 
   const loadData = async () => {
+    // 取得當前用戶
+    const userStr = localStorage.getItem('user');
+    if (!userStr) return;
+    const currentUser = JSON.parse(userStr);
+    
     try {
       // 載入工作
       const jobsRes = await fetch('/api/jobs');
@@ -66,7 +72,9 @@ export default function WorkManagementPage() {
       const usersRes = await fetch('/api/users');
       const usersData = await usersRes.json();
       if (usersData.success) {
-        const childrenList = usersData.users.filter((u: User) => u.role === 'child');
+        const childrenList = usersData.users.filter(
+          (u: User) => u.role === 'child' && u.parentId === currentUser.id
+        );
         setChildren(childrenList);
       }
     } catch (error) {

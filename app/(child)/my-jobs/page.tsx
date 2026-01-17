@@ -8,6 +8,7 @@ interface User {
   name: string;
   email: string;
   role: 'parent' | 'child';
+  parentId?: string;
   points?: number;
   avatar?: string;
 }
@@ -45,25 +46,50 @@ export default function MyJobsPage() {
     }
 
     setUser(userData);
-    loadJobs();
+    // 直接傳入 userData 來載入工作
+    loadJobsWithUser(userData);
   }, [router]);
 
-  const loadJobs = async () => {
+  const loadJobsWithUser = async (currentUser: User) => {
     try {
       const res = await fetch('/api/jobs');
       const data = await res.json();
       if (data.success) {
-        setJobs(data.jobs);
+        console.log('🔍 子女資訊:', { userId: currentUser.id, parentId: currentUser.parentId, name: currentUser.name });
+        console.log('📋 所有工作:', data.jobs);
+        
+        // 只顯示自己父母建立的工作，且符合以下條件之一：
+        // 1. 沒有指派（所有子女都可以接）
+        // 2. 指派給自己的工作
+        const filteredJobs = data.jobs.filter((job: Job) => {
+          const isMyParentsJob = job.createdBy === currentUser.parentId;
+          const isUnassigned = !job.assignedTo;
+          const isAssignedToMe = job.assignedTo === currentUser.id;
+          
+          console.log(`工作 "${job.title}":`, {
+            createdBy: job.createdBy,
+            assignedTo: job.assignedTo,
+            isMyParentsJob,
+            isUnassigned,
+            isAssignedToMe,
+            shouldShow: isMyParentsJob && (isUnassigned || isAssignedToMe)
+          });
+          
+          return isMyParentsJob && (isUnassigned || isAssignedToMe);
+        });
+        
+        console.log('✅ 過濾後的工作:', filteredJobs);
+        setJobs(filteredJobs);
       }
       
       // 同時更新用戶點數
       const userRes = await fetch('/api/users');
       const userData = await userRes.json();
       if (userData.success) {
-        const currentUser = userData.users.find((u: User) => u.id === user?.id);
-        if (currentUser) {
-          setUser(prev => prev ? { ...prev, points: currentUser.points } : null);
-          localStorage.setItem('user', JSON.stringify({ ...user, points: currentUser.points }));
+        const updatedUser = userData.users.find((u: User) => u.id === currentUser.id);
+        if (updatedUser) {
+          setUser(updatedUser);
+          localStorage.setItem('user', JSON.stringify(updatedUser));
         }
       }
     } catch (error) {
@@ -71,6 +97,11 @@ export default function MyJobsPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadJobs = async () => {
+    if (!user) return;
+    await loadJobsWithUser(user);
   };
 
   const handleAcceptJob = async (jobId: string) => {

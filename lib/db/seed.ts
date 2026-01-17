@@ -5,9 +5,18 @@ import { PasswordService } from '../auth/password';
 export async function getDefaultData() {
   // 雜湊預設密碼
   const hashedPassword = await PasswordService.hash('password123');
+  const hashedAdminPassword = await PasswordService.hash('Admin@123');
 
   // 創建測試用戶
   const users: User[] = [
+    {
+      id: '0',
+      email: 'admin@homebank.com',
+      password: hashedAdminPassword,
+      name: '系統管理員',
+      role: 'admin',
+      createdAt: new Date().toISOString(),
+    },
     {
       id: '1',
       email: 'parent@test.com',
@@ -22,6 +31,7 @@ export async function getDefaultData() {
       password: hashedPassword,
       name: '子女帳號',
       role: 'child',
+      parentId: '1', // 屬於 parent@test.com
       points: 100,
       createdAt: new Date().toISOString(),
     },
@@ -82,10 +92,13 @@ export async function getDefaultData() {
 export async function seedDatabase() {
   const data = await getDefaultData();
   
+  // 強制覆寫，確保有管理員帳號
   await db.write('users.json', data.users);
   await db.write('jobs.json', data.jobs);
   await db.write('rewards.json', data.rewards);
   await db.write('transactions.json', data.transactions);
 
   console.log('✅ 資料庫初始化完成！');
+  console.log('📧 管理員帳號: admin@homebank.com');
+  console.log('🔑 管理員密碼: Admin@123');
 }

@@ -8,6 +8,7 @@ interface User {
   name: string;
   email: string;
   role: 'parent' | 'child';
+  parentId?: string;
   points?: number;
   avatar?: string;
 }
@@ -42,6 +43,11 @@ export default function DashboardPage() {
   }, [router]);
 
   const loadStats = async () => {
+    // 取得當前用戶
+    const userStr = localStorage.getItem('user');
+    if (!userStr) return;
+    const currentUser = JSON.parse(userStr);
+    
     try {
       const [jobsRes, rewardsRes, usersRes] = await Promise.all([
         fetch('/api/jobs'),
@@ -63,9 +69,11 @@ export default function DashboardPage() {
         totalMembers: usersData.success ? usersData.users.length : 0,
       });
 
-      // 載入子女列表
+      // 載入子女列表（只顯示自己的子女）
       if (usersData.success) {
-        const childrenList = usersData.users.filter((u: User) => u.role === 'child');
+        const childrenList = usersData.users.filter(
+          (u: User) => u.role === 'child' && u.parentId === currentUser.id
+        );
         setChildren(childrenList);
       }
     } catch (error) {

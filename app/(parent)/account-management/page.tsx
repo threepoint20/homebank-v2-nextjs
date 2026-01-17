@@ -8,6 +8,7 @@ interface User {
   name: string;
   email: string;
   role: 'parent' | 'child';
+  parentId?: string;
   points?: number;
   avatar?: string;
   createdAt: string;
@@ -95,7 +96,10 @@ export default function AccountManagementPage() {
       const res = await fetch('/api/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          parentId: currentUser?.id, // 設定父母 ID
+        }),
       });
 
       const data = await res.json();
@@ -106,7 +110,13 @@ export default function AccountManagementPage() {
         loadUsers();
         alert('新增子女帳戶成功！');
       } else {
-        alert(data.error || '新增失敗');
+        // 處理密碼強度驗證錯誤
+        if (data.errors && Array.isArray(data.errors)) {
+          const errorMessage = '密碼需要滿足以下條件：\n' + data.errors.join('\n');
+          alert(errorMessage);
+        } else {
+          alert(data.error || '新增失敗');
+        }
       }
     } catch (error) {
       console.error('新增用戶失敗:', error);
@@ -146,7 +156,7 @@ export default function AccountManagementPage() {
   }
 
   const parents = users.filter(u => u.role === 'parent');
-  const children = users.filter(u => u.role === 'child');
+  const children = users.filter(u => u.role === 'child' && u.parentId === currentUser?.id);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -408,10 +418,19 @@ export default function AccountManagementPage() {
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  placeholder="至少 6 個字元"
-                  minLength={6}
+                  placeholder="請輸入安全密碼"
                   required
                 />
+                <div className="mt-1 text-xs text-gray-600">
+                  <p className="font-medium mb-1">密碼需要包含：</p>
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>至少 8 個字元</li>
+                    <li>大寫字母 (A-Z)</li>
+                    <li>小寫字母 (a-z)</li>
+                    <li>數字 (0-9)</li>
+                    <li>特殊字元 (!@#$%^&* 等)</li>
+                  </ul>
+                </div>
               </div>
 
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">

@@ -1,4 +1,4 @@
-export type UserRole = 'parent' | 'child';
+export type UserRole = 'admin' | 'parent' | 'child';
 
 export interface User {
   id: string;
@@ -6,6 +6,7 @@ export interface User {
   password: string;
   name: string;
   role: UserRole;
+  parentId?: string; // 子女帳號專用，指向父母的 ID
   points?: number;
   avatar?: string;
   createdAt: string;

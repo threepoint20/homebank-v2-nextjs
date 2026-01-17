@@ -30,7 +30,9 @@ export default function LoginPage() {
         localStorage.setItem('user', JSON.stringify(data.user));
         
         // 根據角色導向不同頁面
-        if (data.user.role === 'parent') {
+        if (data.user.role === 'admin') {
+          router.push('/admin-dashboard');
+        } else if (data.user.role === 'parent') {
           router.push('/dashboard');
         } else {
           router.push('/my-jobs');

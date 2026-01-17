@@ -42,6 +42,7 @@ export default function WorkManagementPage() {
     points: '',
     assignedTo: '', // 新增：指派給特定子女
     dueDate: '', // 截止日期 (YYYY-MM-DDTHH:mm 格式)
+    sendCalendarInvite: false, // 是否發送行事曆邀請
   });
 
   useEffect(() => {
@@ -121,6 +122,7 @@ export default function WorkManagementPage() {
         description: formData.description,
         points: formData.points,
         createdBy: user?.id,
+        sendCalendarInvite: formData.sendCalendarInvite,
       };
 
       // 如果有設定截止日期，轉換為 ISO 8601 格式
@@ -143,11 +145,19 @@ export default function WorkManagementPage() {
       const data = await res.json();
       if (data.success) {
         setShowModal(false);
-        setFormData({ title: '', description: '', points: '', assignedTo: '', dueDate: '' });
+        setFormData({ title: '', description: '', points: '', assignedTo: '', dueDate: '', sendCalendarInvite: false });
         loadData();
+        
+        // 顯示成功訊息
+        if (formData.sendCalendarInvite && formData.assignedTo) {
+          alert('✅ 工作已建立，行事曆邀請已發送！');
+        } else {
+          alert('✅ 工作已建立！');
+        }
       }
     } catch (error) {
       console.error('建立工作失敗:', error);
+      alert('建立工作失敗');
     }
   };
 
@@ -516,6 +526,38 @@ export default function WorkManagementPage() {
                   ⏰ 逾期規則：+1小時 7折、+1.5小時 5折、+2小時 3折、超過2小時 0點、超過當天扣點
                 </p>
               </div>
+              
+              {/* 發送行事曆邀請選項 */}
+              {formData.assignedTo && formData.dueDate && (
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.sendCalendarInvite}
+                      onChange={(e) => setFormData({ ...formData, sendCalendarInvite: e.target.checked })}
+                      className="mt-1 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                    />
+                    <div className="flex-1">
+                      <div className="text-sm font-medium text-purple-900">
+                        📅 發送行事曆邀請到子女郵箱
+                      </div>
+                      <div className="text-xs text-purple-700 mt-1">
+                        子女將收到 .ics 檔案，可以直接加入 iOS/Android 行事曆，並設定提醒通知
+                      </div>
+                    </div>
+                  </label>
+                </div>
+              )}
+              
+              {/* 提示訊息 */}
+              {formData.assignedTo && !formData.dueDate && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                  <p className="text-xs text-yellow-800">
+                    💡 提示：設定截止日期後，可以選擇發送行事曆邀請給子女
+                  </p>
+                </div>
+              )}
+              
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"

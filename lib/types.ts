@@ -27,6 +27,7 @@ export interface Job {
   approvedAt?: string;
   actualPoints?: number; // 實際獲得的點數（考慮折扣後）
   discount?: number; // 折扣百分比 (0-100)
+  sendCalendarInvite?: boolean; // 是否發送行事曆邀請
 }
 
 export interface Reward {

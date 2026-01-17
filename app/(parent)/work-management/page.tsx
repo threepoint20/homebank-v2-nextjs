@@ -38,9 +38,21 @@ export default function WorkManagementPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [filteredJobs, setFilteredJobs] = useState<Job[]>([]);
   const [children, setChildren] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  
+  // 篩選和搜尋狀態
+  const [filters, setFilters] = useState({
+    status: 'all',
+    isRecurring: 'all',
+    assignedTo: 'all',
+    startDate: '',
+    endDate: '',
+    searchText: '',
+  });
+  
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -110,6 +122,7 @@ export default function WorkManagementPage() {
         // 只顯示當前父母創建的工作
         const myJobs = jobsData.jobs.filter((job: Job) => job.createdBy === currentUser.id);
         setJobs(myJobs);
+        setFilteredJobs(myJobs); // 初始化篩選結果
       }
 
       // 載入子女列表
@@ -126,6 +139,111 @@ export default function WorkManagementPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // 應用篩選
+  useEffect(() => {
+    let result = [...jobs];
+
+    // 狀態篩選
+    if (filters.status !== 'all') {
+      result = result.filter(job => job.status === filters.status);
+    }
+
+    // 週期性篩選
+    if (filters.isRecurring === 'yes') {
+      result = result.filter(job => job.isRecurring === true && !job.parentJobId);
+    } else if (filters.isRecurring === 'no') {
+      result = result.filter(job => !job.isRecurring || job.parentJobId);
+    }
+
+    // 指派對象篩選
+    if (filters.assignedTo !== 'all') {
+      result = result.filter(job => job.assignedTo === filters.assignedTo);
+    }
+
+    // 時間區間篩選
+    if (filters.startDate) {
+      const startDate = new Date(filters.startDate);
+      result = result.filter(job => {
+        if (!job.dueDate) return false;
+        return new Date(job.dueDate) >= startDate;
+      });
+    }
+    if (filters.endDate) {
+      const endDate = new Date(filters.endDate);
+      endDate.setHours(23, 59, 59, 999);
+      result = result.filter(job => {
+        if (!job.dueDate) return false;
+        return new Date(job.dueDate) <= endDate;
+      });
+    }
+
+    // 文字搜尋
+    if (filters.searchText) {
+      const searchLower = filters.searchText.toLowerCase();
+      result = result.filter(job =>
+        job.title.toLowerCase().includes(searchLower) ||
+        job.description.toLowerCase().includes(searchLower)
+      );
+    }
+
+    setFilteredJobs(result);
+  }, [jobs, filters]);
+
+  // 匯出 Excel
+  const exportToExcel = async () => {
+    const XLSX = await import('xlsx');
+    
+    // 準備資料
+    const exportData = filteredJobs.map(job => ({
+      '工作名稱': job.title,
+      '描述': job.description,
+      '指派給': getChildName(job.assignedTo),
+      '截止日期': job.dueDate 
+        ? new Date(job.dueDate).toLocaleString('zh-TW', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+          })
+        : '-',
+      '指派時間': job.assignedAt 
+        ? new Date(job.assignedAt).toLocaleString('zh-TW', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+          })
+        : '-',
+      '提交時間': job.completedAt 
+        ? new Date(job.completedAt).toLocaleString('zh-TW', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+          })
+        : '-',
+      '點數': job.points,
+      '狀態': job.status === 'pending' ? '待接取' :
+              job.status === 'in_progress' ? '進行中' :
+              job.status === 'completed' ? '待審核' : '已完成',
+      '週期性': job.isRecurring && !job.parentJobId ? 
+        (job.recurringPattern === 'daily' ? '每天' :
+         job.recurringPattern === 'weekly' ? '每週' : '每月') : '-',
+    }));
+
+    // 創建工作表
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '工作列表');
+
+    // 下載檔案
+    const fileName = `工作列表_${new Date().toLocaleDateString('zh-TW').replace(/\//g, '')}.xlsx`;
+    XLSX.writeFile(wb, fileName);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -379,34 +497,159 @@ export default function WorkManagementPage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* 篩選和搜尋區域 */}
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">篩選和搜尋</h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            {/* 狀態篩選 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                狀態
+              </label>
+              <select
+                value={filters.status}
+                onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">全部</option>
+                <option value="pending">待接取</option>
+                <option value="in_progress">進行中</option>
+                <option value="completed">待審核</option>
+                <option value="approved">已完成</option>
+              </select>
+            </div>
+
+            {/* 週期性篩選 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                週期性
+              </label>
+              <select
+                value={filters.isRecurring}
+                onChange={(e) => setFilters({ ...filters, isRecurring: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">全部</option>
+                <option value="yes">週期性工作</option>
+                <option value="no">單次工作</option>
+              </select>
+            </div>
+
+            {/* 指派對象篩選 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                指派給
+              </label>
+              <select
+                value={filters.assignedTo}
+                onChange={(e) => setFilters({ ...filters, assignedTo: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">全部</option>
+                {children.map((child) => (
+                  <option key={child.id} value={child.id}>
+                    {child.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* 開始日期 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                開始日期
+              </label>
+              <input
+                type="date"
+                value={filters.startDate}
+                onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            {/* 結束日期 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                結束日期
+              </label>
+              <input
+                type="date"
+                value={filters.endDate}
+                onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            {/* 文字搜尋 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                搜尋工作
+              </label>
+              <input
+                type="text"
+                value={filters.searchText}
+                onChange={(e) => setFilters({ ...filters, searchText: e.target.value })}
+                placeholder="搜尋工作名稱或描述..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-between items-center mt-4">
+            <button
+              onClick={() => setFilters({
+                status: 'all',
+                isRecurring: 'all',
+                assignedTo: 'all',
+                startDate: '',
+                endDate: '',
+                searchText: '',
+              })}
+              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900"
+            >
+              清除篩選
+            </button>
+            <button
+              onClick={exportToExcel}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center gap-2"
+            >
+              <span>📊</span>
+              匯出 Excel ({filteredJobs.length} 筆)
+            </button>
+          </div>
+        </div>
+
         {/* 統計 */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
           <div className="bg-white rounded-lg shadow p-4">
             <div className="text-sm text-gray-600">全部工作</div>
-            <div className="text-2xl font-bold text-gray-900 mt-1">{jobs.length}</div>
+            <div className="text-2xl font-bold text-gray-900 mt-1">{filteredJobs.length}</div>
           </div>
           <div className="bg-white rounded-lg shadow p-4">
             <div className="text-sm text-gray-600">待接取</div>
             <div className="text-2xl font-bold text-gray-600 mt-1">
-              {jobs.filter(j => j.status === 'pending').length}
+              {filteredJobs.filter(j => j.status === 'pending').length}
             </div>
           </div>
           <div className="bg-white rounded-lg shadow p-4">
             <div className="text-sm text-gray-600">進行中</div>
             <div className="text-2xl font-bold text-blue-600 mt-1">
-              {jobs.filter(j => j.status === 'in_progress').length}
+              {filteredJobs.filter(j => j.status === 'in_progress').length}
             </div>
           </div>
           <div className="bg-white rounded-lg shadow p-4">
             <div className="text-sm text-gray-600">待審核</div>
             <div className="text-2xl font-bold text-yellow-600 mt-1">
-              {jobs.filter(j => j.status === 'completed').length}
+              {filteredJobs.filter(j => j.status === 'completed').length}
             </div>
           </div>
           <div className="bg-white rounded-lg shadow p-4">
             <div className="text-sm text-gray-600">已完成</div>
             <div className="text-2xl font-bold text-green-600 mt-1">
-              {jobs.filter(j => j.status === 'approved').length}
+              {filteredJobs.filter(j => j.status === 'approved').length}
             </div>
           </div>
         </div>
@@ -424,6 +667,9 @@ export default function WorkManagementPage() {
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   指派給
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  週期性
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   截止日期
@@ -446,14 +692,14 @@ export default function WorkManagementPage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {jobs.length === 0 ? (
+              {filteredJobs.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-12 text-center text-gray-500">
-                    還沒有建立任何工作
+                  <td colSpan={10} className="px-6 py-12 text-center text-gray-500">
+                    {jobs.length === 0 ? '還沒有建立任何工作' : '沒有符合條件的工作'}
                   </td>
                 </tr>
               ) : (
-                jobs.map((job) => (
+                filteredJobs.map((job) => (
                   <tr key={job.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="font-medium text-gray-900">{job.title}</div>
@@ -476,6 +722,23 @@ export default function WorkManagementPage() {
                       <div className="text-sm text-gray-900">
                         {getChildName(job.assignedTo)}
                       </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {job.isRecurring && !job.parentJobId ? (
+                        <div>
+                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                            🔄 {
+                              job.recurringPattern === 'daily' ? '每天' :
+                              job.recurringPattern === 'weekly' ? '每週' :
+                              '每月'
+                            }
+                          </span>
+                        </div>
+                      ) : job.parentJobId ? (
+                        <span className="text-xs text-gray-500">週期生成</span>
+                      ) : (
+                        <span className="text-xs text-gray-400">-</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-xs text-gray-500">

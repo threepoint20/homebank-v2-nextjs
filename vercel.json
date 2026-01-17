@@ -4,7 +4,7 @@
   "devCommand": "npm run dev",
   "installCommand": "npm install",
   "framework": "nextjs",
-  "regions": ["hnd1"],
+  "regions": ["hkg1", "sin1", "hnd1"],
   "env": {
     "NODE_ENV": "production"
   }

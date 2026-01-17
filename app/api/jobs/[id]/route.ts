@@ -11,6 +11,8 @@ export async function POST(
     const { userId } = await request.json();
     const jobId = params.id;
 
+    console.log('📝 接取工作請求:', { jobId, userId });
+
     if (!userId) {
       return NextResponse.json(
         { success: false, error: '缺少用戶 ID' },
@@ -20,6 +22,8 @@ export async function POST(
 
     // 檢查工作是否存在
     const job = await db.findOne<Job>('jobs.json', (j) => j.id === jobId);
+    console.log('🔍 查詢工作結果:', job);
+    
     if (!job) {
       return NextResponse.json(
         { success: false, error: '工作不存在' },
@@ -29,6 +33,7 @@ export async function POST(
 
     // 檢查工作狀態
     if (job.status !== 'pending') {
+      console.log('❌ 狀態檢查失敗:', { currentStatus: job.status, expected: 'pending' });
       return NextResponse.json(
         { success: false, error: '此工作已被接取' },
         { status: 400 }
@@ -42,11 +47,14 @@ export async function POST(
       assignedAt: new Date().toISOString(), // 記錄接取時間
     });
 
+    console.log('✅ 工作接取成功:', updatedJob);
+
     return NextResponse.json({ success: true, job: updatedJob });
   } catch (error) {
-    console.error('接取工作失敗:', error);
+    console.error('❌ 接取工作失敗:', error);
+    console.error('錯誤堆疊:', (error as Error).stack);
     return NextResponse.json(
-      { success: false, error: '接取工作失敗' },
+      { success: false, error: '接取工作失敗', details: (error as Error).message },
       { status: 500 }
     );
   }
@@ -61,6 +69,8 @@ export async function PUT(
     const { userId } = await request.json();
     const jobId = params.id;
 
+    console.log('📝 提交工作完成請求:', { jobId, userId });
+
     if (!userId) {
       return NextResponse.json(
         { success: false, error: '缺少用戶 ID' },
@@ -70,6 +80,8 @@ export async function PUT(
 
     // 檢查工作
     const job = await db.findOne<Job>('jobs.json', (j) => j.id === jobId);
+    console.log('🔍 查詢工作結果:', job);
+    
     if (!job) {
       return NextResponse.json(
         { success: false, error: '工作不存在' },
@@ -78,6 +90,7 @@ export async function PUT(
     }
 
     if (job.assignedTo !== userId) {
+      console.log('❌ 權限檢查失敗:', { jobAssignedTo: job.assignedTo, userId });
       return NextResponse.json(
         { success: false, error: '無權限完成此工作' },
         { status: 403 }
@@ -85,6 +98,7 @@ export async function PUT(
     }
 
     if (job.status !== 'in_progress') {
+      console.log('❌ 狀態檢查失敗:', { currentStatus: job.status, expected: 'in_progress' });
       return NextResponse.json(
         { success: false, error: '工作狀態不正確' },
         { status: 400 }
@@ -97,15 +111,18 @@ export async function PUT(
       completedAt: new Date().toISOString(),
     });
 
+    console.log('✅ 工作更新成功:', updatedJob);
+
     return NextResponse.json({ 
       success: true, 
       job: updatedJob,
       message: '已提交完成，等待父母審核',
     });
   } catch (error) {
-    console.error('提交工作失敗:', error);
+    console.error('❌ 提交工作失敗:', error);
+    console.error('錯誤堆疊:', (error as Error).stack);
     return NextResponse.json(
-      { success: false, error: '提交工作失敗' },
+      { success: false, error: '提交工作失敗', details: (error as Error).message },
       { status: 500 }
     );
   }

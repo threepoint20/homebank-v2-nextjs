@@ -174,8 +174,10 @@ export default function AccountManagementPage() {
     );
   }
 
-  const parents = users.filter(u => u.role === 'parent');
+  // 只顯示當前父母自己和自己的子女
+  const myAccount = currentUser ? [currentUser] : [];
   const children = users.filter(u => u.role === 'child' && u.parentId === currentUser?.id);
+  const totalMembers = myAccount.length + children.length;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -207,12 +209,12 @@ export default function AccountManagementPage() {
         {/* 統計 */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <div className="bg-white rounded-lg shadow p-4">
-            <div className="text-sm text-gray-600">全部成員</div>
-            <div className="text-2xl font-bold text-gray-900 mt-1">{users.length}</div>
+            <div className="text-sm text-gray-600">家庭成員</div>
+            <div className="text-2xl font-bold text-gray-900 mt-1">{totalMembers}</div>
           </div>
           <div className="bg-white rounded-lg shadow p-4">
             <div className="text-sm text-gray-600">父母帳戶</div>
-            <div className="text-2xl font-bold text-blue-600 mt-1">{parents.length}</div>
+            <div className="text-2xl font-bold text-blue-600 mt-1">{myAccount.length}</div>
           </div>
           <div className="bg-white rounded-lg shadow p-4">
             <div className="text-sm text-gray-600">子女帳戶</div>
@@ -223,7 +225,7 @@ export default function AccountManagementPage() {
         {/* 父母帳戶 */}
         <div className="bg-white rounded-lg shadow mb-6">
           <div className="px-6 py-4 border-b">
-            <h2 className="text-lg font-semibold text-gray-900">父母帳戶</h2>
+            <h2 className="text-lg font-semibold text-gray-900">我的帳戶</h2>
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
@@ -241,15 +243,12 @@ export default function AccountManagementPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {parents.map((user) => (
+                {myAccount.map((user) => (
                   <tr key={user.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="text-sm font-medium text-gray-900">
                           {user.name}
-                          {user.id === currentUser?.id && (
-                            <span className="ml-2 text-xs text-blue-600">(目前)</span>
-                          )}
                         </div>
                       </div>
                     </td>
@@ -271,7 +270,7 @@ export default function AccountManagementPage() {
         {/* 子女帳戶 */}
         <div className="bg-white rounded-lg shadow">
           <div className="px-6 py-4 border-b">
-            <h2 className="text-lg font-semibold text-gray-900">子女帳戶</h2>
+            <h2 className="text-lg font-semibold text-gray-900">我的子女帳戶</h2>
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">

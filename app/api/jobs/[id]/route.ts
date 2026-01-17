@@ -114,8 +114,15 @@ export async function PUT(
     }
 
     // 驗證用戶是否存在及角色
+    console.log('🔍 開始查詢用戶:', userId);
+    const allUsers = await db.read('users.json');
+    console.log('📋 所有用戶:', allUsers.map((u: any) => ({ id: u.id, email: u.email, role: u.role })));
+    
     const user = await db.findOne<User>('users.json', (u) => u.id === userId);
+    console.log('🔍 查詢用戶結果:', user ? { id: user.id, email: user.email, role: user.role } : null);
+    
     if (!user) {
+      console.error('❌ 用戶不存在:', { userId, availableUserIds: allUsers.map((u: any) => u.id) });
       return NextResponse.json(
         { success: false, error: '用戶不存在' },
         { status: 404 }

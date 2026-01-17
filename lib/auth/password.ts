@@ -40,57 +40,27 @@ export class PasswordService {
     const errors: string[] = [];
     let score = 0;
 
-    // 基本長度檢查
-    if (password.length < 8) {
-      errors.push('密碼至少需要 8 個字元');
-    } else if (password.length >= 8) {
+    // 基本長度檢查（只要求 6 個字元以上）
+    if (password.length < 6) {
+      errors.push('密碼至少需要 6 個字元');
+    } else if (password.length >= 6) {
+      score += 40;
+    }
+
+    if (password.length >= 8) {
       score += 20;
     }
 
     if (password.length >= 12) {
+      score += 20;
+    }
+
+    // 包含字母或數字即可（不強制要求大小寫、特殊字元）
+    if (/[a-zA-Z]/.test(password)) {
       score += 10;
     }
 
-    // 包含小寫字母
-    if (/[a-z]/.test(password)) {
-      score += 15;
-    } else {
-      errors.push('密碼需要包含小寫字母');
-    }
-
-    // 包含大寫字母
-    if (/[A-Z]/.test(password)) {
-      score += 15;
-    } else {
-      errors.push('密碼需要包含大寫字母');
-    }
-
-    // 包含數字
     if (/\d/.test(password)) {
-      score += 15;
-    } else {
-      errors.push('密碼需要包含數字');
-    }
-
-    // 包含特殊字元
-    if (/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
-      score += 15;
-    } else {
-      errors.push('密碼需要包含特殊字元 (!@#$%^&* 等)');
-    }
-
-    // 不包含常見弱密碼
-    const commonPasswords = [
-      'password', '123456', '123456789', 'qwerty', 'abc123',
-      'password123', '111111', '123123', 'admin', 'root'
-    ];
-    
-    if (commonPasswords.some(common => 
-      password.toLowerCase().includes(common.toLowerCase())
-    )) {
-      errors.push('密碼不能包含常見的弱密碼');
-      score -= 20;
-    } else {
       score += 10;
     }
 
@@ -98,7 +68,7 @@ export class PasswordService {
     score = Math.max(0, Math.min(100, score));
 
     return {
-      isValid: errors.length === 0 && score >= 60,
+      isValid: errors.length === 0,
       errors,
       score
     };

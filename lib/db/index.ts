@@ -65,13 +65,13 @@ export class JsonDB {
   async update<T extends { id: string }>(
     filename: string,
     id: string,
-    updates: Partial<T>
+    updates: Partial<T> | Record<string, any>
   ): Promise<T | null> {
     const items = await this.read<T>(filename);
     const index = items.findIndex((item) => item.id === id);
     if (index === -1) return null;
     
-    items[index] = { ...items[index], ...updates };
+    items[index] = { ...items[index], ...updates } as T;
     await this.write(filename, items);
     return items[index];
   }
@@ -105,7 +105,7 @@ export interface Database {
   update<T extends { id: string }>(
     filename: string,
     id: string,
-    updates: Partial<T>
+    updates: Partial<T> | Record<string, any>
   ): Promise<T | null>;
   delete<T extends { id: string }>(
     filename: string,

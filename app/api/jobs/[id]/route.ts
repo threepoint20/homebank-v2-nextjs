@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { Job, User, PointTransaction } from '@/lib/types';
+import { Job, User } from '@/lib/types';
 
 // 接取工作
 export async function POST(
@@ -8,7 +8,17 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { userId } = await request.json();
+    let userId: string;
+    try {
+      const body = await request.json();
+      userId = body.userId;
+    } catch {
+      return NextResponse.json(
+        { success: false, error: '無效的請求格式 (Invalid JSON)' },
+        { status: 400 }
+      );
+    }
+
     const jobId = params.id;
 
     console.log('📝 接取工作請求:', { jobId, userId });
@@ -17,6 +27,22 @@ export async function POST(
       return NextResponse.json(
         { success: false, error: '缺少用戶 ID' },
         { status: 400 }
+      );
+    }
+
+    // 驗證用戶是否存在及權限
+    const user = await db.findOne<User>('users.json', (u) => u.id === userId);
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: '用戶不存在' },
+        { status: 404 }
+      );
+    }
+
+    if (user.role !== 'child') {
+      return NextResponse.json(
+        { success: false, error: '只有子女帳號可以接取工作' },
+        { status: 403 }
       );
     }
 
@@ -66,7 +92,16 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { userId } = await request.json();
+    let userId: string;
+    try {
+      const body = await request.json();
+      userId = body.userId;
+    } catch {
+      return NextResponse.json(
+        { success: false, error: '無效的請求格式 (Invalid JSON)' },
+        { status: 400 }
+      );
+    }
     const jobId = params.id;
 
     console.log('📝 提交工作完成請求:', { jobId, userId });
@@ -75,6 +110,23 @@ export async function PUT(
       return NextResponse.json(
         { success: false, error: '缺少用戶 ID' },
         { status: 400 }
+      );
+    }
+
+    // 驗證用戶是否存在及角色
+    const user = await db.findOne<User>('users.json', (u) => u.id === userId);
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: '用戶不存在' },
+        { status: 404 }
+      );
+    }
+
+    // 檢查角色（額外的安全層）
+    if (user.role !== 'child') {
+      return NextResponse.json(
+        { success: false, error: '只有子女帳號可以提交工作' },
+        { status: 403 }
       );
     }
 

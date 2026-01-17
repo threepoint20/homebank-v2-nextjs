@@ -20,10 +20,13 @@ interface Job {
   createdBy: string;
   assignedTo?: string;
   assignedAt?: string;
+  dueDate?: string;
   status: 'pending' | 'in_progress' | 'completed' | 'approved';
   createdAt: string;
   completedAt?: string;
   approvedAt?: string;
+  actualPoints?: number;
+  discount?: number;
 }
 
 export default function WorkManagementPage() {
@@ -324,6 +327,9 @@ export default function WorkManagementPage() {
                   指派給
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  截止日期
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   指派時間
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
@@ -343,7 +349,7 @@ export default function WorkManagementPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {jobs.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={9} className="px-6 py-12 text-center text-gray-500">
                     還沒有建立任何工作
                   </td>
                 </tr>
@@ -361,6 +367,19 @@ export default function WorkManagementPage() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
                         {getChildName(job.assignedTo)}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-xs text-gray-500">
+                        {job.dueDate 
+                          ? new Date(job.dueDate).toLocaleString('zh-TW', {
+                              month: '2-digit',
+                              day: '2-digit',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })
+                          : '-'
+                        }
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

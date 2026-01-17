@@ -83,18 +83,29 @@ class BlobDatabase {
     }
   }
 
-  async read<T>(filename: string): Promise<T[]> {
+  async read<T>(filename: string, bustCache: boolean = false): Promise<T[]> {
     try {
+      // 如果需要清除快取，先刪除快取的 URL
+      if (bustCache) {
+        this.urlCache.delete(filename);
+        console.log(`🔄 清除快取: ${filename}`);
+      }
+      
       // 嘗試從 Blob 讀取
       const blobUrl = await this.getBlobUrl(filename);
       
       if (!blobUrl) {
         // 如果檔案不存在，返回空陣列
-        console.log(`� ${filename} 不存在，返回空陣列`);
+        console.log(`📁 ${filename} 不存在，返回空陣列`);
         return [];
       }
 
-      const response = await fetch(blobUrl);
+      // 添加時間戳參數以避免 CDN 快取
+      const urlWithTimestamp = `${blobUrl}?t=${Date.now()}`;
+      const response = await fetch(urlWithTimestamp, {
+        cache: 'no-store', // 禁用瀏覽器快取
+      });
+      
       if (!response.ok) {
         // 如果是 404，代表檔案可能已被外部刪除，應清除快取
         // 這樣下次讀取時會重新呼叫 list API 查詢最新狀態

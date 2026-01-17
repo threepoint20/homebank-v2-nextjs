@@ -3,6 +3,9 @@ import { db } from '@/lib/db';
 import { User, PasswordResetToken } from '@/lib/types';
 import { PasswordService } from '@/lib/auth/password';
 
+// 延遲函數
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 export async function POST(request: NextRequest) {
   try {
     const { token, password } = await request.json();
@@ -21,11 +24,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 從資料庫查詢 token
-    const tokenData = await db.findOne<PasswordResetToken>(
-      'password-reset-tokens.json',
-      (t) => t.token === token
-    );
+    // 從資料庫查詢 token（帶重試機制處理 Vercel Blob 的最終一致性）
+    let tokenData: PasswordResetToken | null = null;
+    const maxRetries = 3;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      console.log(`🔄 嘗試 ${attempt}/${maxRetries} 讀取 token...`);
+      
+      // 清除快取以確保讀取最新資料
+      const allTokens = await db.read<PasswordResetToken>('password-reset-tokens.json', true);
+      console.log(`📋 資料庫中的所有 tokens: ${allTokens.length}`);
+      
+      tokenData = allTokens.find((t) => t.token === token) || null;
+      
+      if (tokenData) {
+        console.log(`✅ 第 ${attempt} 次嘗試找到 token`);
+        break;
+      }
+      
+      // 如果不是最後一次嘗試，等待後重試
+      if (attempt < maxRetries) {
+        console.log(`⏳ 等待 ${attempt * 500}ms 後重試...`);
+        await delay(attempt * 500); // 遞增延遲：500ms, 1000ms
+      }
+    }
 
     console.log('🔍 Token 查詢結果:', tokenData ? {
       found: true,

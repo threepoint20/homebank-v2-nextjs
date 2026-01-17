@@ -1,0 +1,143 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { db } from '@/lib/db';
+import { User } from '@/lib/types';
+import crypto from 'crypto';
+
+// 儲存重設 token（在生產環境應該使用資料庫）
+const resetTokens = new Map<string, { userId: string; email: string; expiresAt: number }>();
+
+export async function POST(request: NextRequest) {
+  try {
+    const { email } = await request.json();
+
+    if (!email) {
+      return NextResponse.json(
+        { success: false, message: '請提供 Email' },
+        { status: 400 }
+      );
+    }
+
+    // 檢查用戶是否存在
+    const user = await db.findOne<User>('users.json', (u) => u.email === email);
+
+    // 為了安全性，即使用戶不存在也返回成功訊息（避免洩漏用戶資訊）
+    if (!user) {
+      return NextResponse.json({
+        success: true,
+        message: '如果該 Email 存在，重設連結已發送',
+      });
+    }
+
+    // 生成重設 token
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = Date.now() + 60 * 60 * 1000; // 1 小時後過期
+
+    // 儲存 token
+    resetTokens.set(token, {
+      userId: user.id,
+      email: user.email,
+      expiresAt,
+    });
+
+    // 建立重設連結
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 
+                    (request.headers.get('host') 
+                      ? `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host')}`
+                      : 'http://localhost:3000');
+    const resetUrl = `${baseUrl}/reset-password?token=${token}`;
+
+    // 發送郵件
+    try {
+      await sendResetEmail(user.email, user.name, resetUrl);
+    } catch (emailError) {
+      console.error('發送郵件失敗:', emailError);
+      return NextResponse.json(
+        { success: false, message: '發送郵件失敗，請稍後再試' },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: '重設連結已發送至您的 Email',
+    });
+  } catch (error) {
+    console.error('忘記密碼處理失敗:', error);
+    return NextResponse.json(
+      { success: false, message: '處理失敗，請稍後再試' },
+      { status: 500 }
+    );
+  }
+}
+
+// 發送重設密碼郵件
+async function sendResetEmail(email: string, name: string, resetUrl: string) {
+  const resendApiKey = process.env.RESEND_API_KEY;
+
+  if (!resendApiKey) {
+    console.warn('⚠️ RESEND_API_KEY 未設定，郵件功能將無法使用');
+    console.log('📧 重設密碼連結（開發模式）:', resetUrl);
+    return;
+  }
+
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${resendApiKey}`,
+    },
+    body: JSON.stringify({
+      from: process.env.EMAIL_FROM || 'HomeBank <noreply@homebank.com>',
+      to: email,
+      subject: '重設您的 HomeBank 密碼',
+      html: `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <style>
+              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+              .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+              .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+              .button { display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+              .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <h1>🏦 HomeBank V2</h1>
+              </div>
+              <div class="content">
+                <h2>您好，${name}</h2>
+                <p>我們收到了重設您密碼的請求。</p>
+                <p>請點擊下方按鈕重設您的密碼：</p>
+                <div style="text-align: center;">
+                  <a href="${resetUrl}" class="button">重設密碼</a>
+                </div>
+                <p>或複製以下連結至瀏覽器：</p>
+                <p style="background: #fff; padding: 10px; border-radius: 5px; word-break: break-all;">
+                  ${resetUrl}
+                </p>
+                <p><strong>此連結將在 1 小時後失效。</strong></p>
+                <p>如果您沒有申請重設密碼，請忽略此郵件。</p>
+              </div>
+              <div class="footer">
+                <p>© ${new Date().getFullYear()} HomeBank V2. All rights reserved.</p>
+              </div>
+            </div>
+          </body>
+        </html>
+      `,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Resend API 錯誤: ${error}`);
+  }
+}
+
+// 導出 resetTokens 供其他 API 使用
+export { resetTokens };

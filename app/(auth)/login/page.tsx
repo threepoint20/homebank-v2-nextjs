@@ -101,22 +101,17 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div className="mt-6 text-center">
+        <div className="mt-6 text-center space-y-3">
           <p className="text-gray-600">
             還沒有帳戶？{' '}
             <Link href="/register" className="text-blue-600 hover:underline">
               註冊
             </Link>
           </p>
-        </div>
-
-        <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-          <p className="text-sm text-gray-600 mb-2">測試帳戶：</p>
-          <p className="text-xs text-gray-500">
-            父母: parent@test.com / password123
-          </p>
-          <p className="text-xs text-gray-500">
-            子女: child@test.com / password123
+          <p className="text-gray-600">
+            <Link href="/forgot-password" className="text-blue-600 hover:underline">
+              忘記密碼？
+            </Link>
           </p>
         </div>
       </div>

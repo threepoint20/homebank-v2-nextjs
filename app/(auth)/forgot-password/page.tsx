@@ -8,6 +8,8 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+  const [resetUrl, setResetUrl] = useState('');
+  const [testMode, setTestMode] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,6 +27,10 @@ export default function ForgotPasswordPage() {
 
       if (data.success) {
         setSuccess(true);
+        if (data.resetUrl) {
+          setResetUrl(data.resetUrl);
+          setTestMode(true);
+        }
       } else {
         setError(data.message || '發送失敗');
       }
@@ -42,18 +48,50 @@ export default function ForgotPasswordPage() {
           <div className="text-center">
             <div className="text-6xl mb-4">✅</div>
             <h1 className="text-2xl font-bold text-gray-900 mb-4">
-              郵件已發送
+              {testMode ? '重設連結已生成' : '郵件已發送'}
             </h1>
-            <p className="text-gray-600 mb-6">
-              我們已將重設密碼連結發送至 <strong>{email}</strong>
-            </p>
-            <p className="text-sm text-gray-500 mb-6">
-              請檢查您的信箱（包含垃圾郵件資料夾），並點擊連結重設密碼。
-              連結將在 1 小時後失效。
-            </p>
+            
+            {testMode ? (
+              <>
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                  <p className="text-sm text-yellow-800 mb-2">
+                    ⚠️ 測試模式：由於使用測試網域，郵件無法發送
+                  </p>
+                  <p className="text-xs text-yellow-700">
+                    請直接使用下方連結重設密碼
+                  </p>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                  <p className="text-xs text-gray-600 mb-2">重設密碼連結：</p>
+                  <a 
+                    href={resetUrl}
+                    className="text-sm text-blue-600 hover:text-blue-700 break-all"
+                  >
+                    {resetUrl}
+                  </a>
+                </div>
+                <a
+                  href={resetUrl}
+                  className="inline-block w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition mb-3"
+                >
+                  前往重設密碼
+                </a>
+              </>
+            ) : (
+              <>
+                <p className="text-gray-600 mb-6">
+                  我們已將重設密碼連結發送至 <strong>{email}</strong>
+                </p>
+                <p className="text-sm text-gray-500 mb-6">
+                  請檢查您的信箱（包含垃圾郵件資料夾），並點擊連結重設密碼。
+                  連結將在 1 小時後失效。
+                </p>
+              </>
+            )}
+            
             <Link
               href="/login"
-              className="inline-block w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
+              className="inline-block w-full bg-gray-200 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-300 transition"
             >
               返回登入
             </Link>

@@ -97,7 +97,10 @@ export default function WorkManagementPage() {
     const currentUser = JSON.parse(userStr);
     
     try {
-      // 先檢查並生成週期性工作
+      // 先處理過期工作
+      await fetch('/api/jobs/expired', { method: 'POST' });
+      
+      // 再檢查並生成週期性工作
       await fetch('/api/jobs/recurring', { method: 'POST' });
       
       // 載入工作

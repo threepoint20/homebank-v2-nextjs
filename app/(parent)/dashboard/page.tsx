@@ -68,6 +68,9 @@ export default function DashboardPage() {
     const currentUser = JSON.parse(userStr);
     
     try {
+      // 先處理過期工作
+      await fetch('/api/jobs/expired', { method: 'POST' });
+      
       const [jobsRes, rewardsRes, usersRes] = await Promise.all([
         fetch('/api/jobs'),
         fetch('/api/rewards'),

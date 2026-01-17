@@ -22,10 +22,13 @@ interface Job {
   createdBy: string;
   assignedTo?: string;
   assignedAt?: string;
+  dueDate?: string;
   status: 'pending' | 'in_progress' | 'completed' | 'approved';
   createdAt: string;
   completedAt?: string;
   approvedAt?: string;
+  actualPoints?: number;
+  discount?: number;
 }
 
 export default function JobHistoryPage() {
@@ -122,7 +125,11 @@ export default function JobHistoryPage() {
     );
   }
 
-  const totalPoints = approvedJobs.reduce((sum, job) => sum + job.points, 0);
+  const totalPoints = approvedJobs.reduce((sum, job) => {
+    // 使用實際點數（如果有的話），否則使用原始點數
+    const points = job.actualPoints !== undefined ? job.actualPoints : job.points;
+    return sum + points;
+  }, 0);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -305,9 +312,24 @@ export default function JobHistoryPage() {
                       <td className="px-6 py-4">
                         <div className="font-medium text-gray-900">{job.title}</div>
                         <div className="text-sm text-gray-500">{job.description}</div>
+                        {job.discount === -100 && (
+                          <div className="text-xs text-red-600 font-medium mt-1">
+                            ⚠️ 逾期未完成
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-green-600">+{job.points} 點</div>
+                        {job.discount === -100 ? (
+                          <div className="text-sm font-medium text-red-600">-{job.points} 點</div>
+                        ) : job.actualPoints !== undefined && job.actualPoints !== job.points ? (
+                          <div>
+                            <div className="text-sm font-medium text-orange-600">+{job.actualPoints} 點</div>
+                            <div className="text-xs text-gray-500 line-through">原 {job.points} 點</div>
+                            <div className="text-xs text-orange-600">{job.discount}% 折扣</div>
+                          </div>
+                        ) : (
+                          <div className="text-sm font-medium text-green-600">+{job.points} 點</div>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-xs text-gray-500">

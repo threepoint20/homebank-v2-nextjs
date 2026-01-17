@@ -23,7 +23,7 @@ export class JsonDB {
     }
   }
 
-  async read<T>(filename: string): Promise<T[]> {
+  async read<T>(filename: string, bustCache?: boolean): Promise<T[]> {
     await this.ensureFile(filename);
     const filePath = path.join(DATA_DIR, filename);
     const data = await fs.readFile(filePath, 'utf-8');
@@ -91,7 +91,7 @@ export class JsonDB {
 
 // 資料庫介面
 export interface Database {
-  read<T>(filename: string): Promise<T[]>;
+  read<T>(filename: string, bustCache?: boolean): Promise<T[]>;
   write<T>(filename: string, data: T[]): Promise<void>;
   findOne<T extends { id: string }>(
     filename: string,

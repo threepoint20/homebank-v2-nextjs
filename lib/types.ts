@@ -28,6 +28,11 @@ export interface Job {
   actualPoints?: number; // 實際獲得的點數（考慮折扣後）
   discount?: number; // 折扣百分比 (0-100)
   sendCalendarInvite?: boolean; // 是否發送行事曆邀請
+  isRecurring?: boolean; // 是否為週期性工作
+  recurringPattern?: 'daily' | 'weekly' | 'monthly'; // 週期類型
+  recurringDays?: number[]; // 每週的哪幾天 (0=週日, 1=週一, ..., 6=週六)
+  recurringEndDate?: string; // 週期結束日期
+  parentJobId?: string; // 如果是從週期性工作生成的，記錄父工作 ID
 }
 
 export interface Reward {

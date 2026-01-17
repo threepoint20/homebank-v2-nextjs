@@ -27,6 +27,11 @@ interface Job {
   approvedAt?: string;
   actualPoints?: number;
   discount?: number;
+  isRecurring?: boolean;
+  recurringPattern?: 'daily' | 'weekly' | 'monthly';
+  recurringDays?: number[];
+  recurringEndDate?: string;
+  parentJobId?: string;
 }
 
 export default function WorkManagementPage() {
@@ -43,6 +48,10 @@ export default function WorkManagementPage() {
     assignedTo: '', // 新增：指派給特定子女
     dueDate: '', // 截止日期 (YYYY-MM-DDTHH:mm 格式)
     sendCalendarInvite: false, // 是否發送行事曆邀請
+    isRecurring: false, // 是否為週期性工作
+    recurringPattern: 'daily' as 'daily' | 'weekly' | 'monthly', // 週期類型
+    recurringDays: [] as number[], // 每週的哪幾天
+    recurringEndDate: '', // 週期結束日期
   });
 
   useEffect(() => {
@@ -88,6 +97,9 @@ export default function WorkManagementPage() {
     const currentUser = JSON.parse(userStr);
     
     try {
+      // 先檢查並生成週期性工作
+      await fetch('/api/jobs/recurring', { method: 'POST' });
+      
       // 載入工作
       const jobsRes = await fetch('/api/jobs');
       const jobsData = await jobsRes.json();
@@ -123,11 +135,23 @@ export default function WorkManagementPage() {
         points: formData.points,
         createdBy: user?.id,
         sendCalendarInvite: formData.sendCalendarInvite,
+        isRecurring: formData.isRecurring,
       };
 
       // 如果有設定截止日期，轉換為 ISO 8601 格式
       if (formData.dueDate) {
         jobData.dueDate = new Date(formData.dueDate).toISOString();
+      }
+
+      // 如果是週期性工作，加入週期設定
+      if (formData.isRecurring) {
+        jobData.recurringPattern = formData.recurringPattern;
+        if (formData.recurringPattern === 'weekly' && formData.recurringDays.length > 0) {
+          jobData.recurringDays = formData.recurringDays;
+        }
+        if (formData.recurringEndDate) {
+          jobData.recurringEndDate = new Date(formData.recurringEndDate).toISOString();
+        }
       }
 
       // 如果有指派給特定子女，加入 assignedTo 和設定狀態為 in_progress
@@ -150,15 +174,29 @@ export default function WorkManagementPage() {
         }
         
         setShowModal(false);
-        setFormData({ title: '', description: '', points: '', assignedTo: '', dueDate: '', sendCalendarInvite: false });
+        setFormData({ 
+          title: '', 
+          description: '', 
+          points: '', 
+          assignedTo: '', 
+          dueDate: '', 
+          sendCalendarInvite: false,
+          isRecurring: false,
+          recurringPattern: 'daily',
+          recurringDays: [],
+          recurringEndDate: '',
+        });
         loadData();
         
         // 顯示成功訊息
-        if (formData.sendCalendarInvite && formData.assignedTo) {
-          alert('✅ 工作已建立！行事曆檔案已下載，請點擊檔案加入到 iCloud 行事曆');
-        } else {
-          alert('✅ 工作已建立！');
+        let message = '✅ 工作已建立！';
+        if (formData.isRecurring) {
+          message += '\n📅 週期性工作已設定';
         }
+        if (formData.sendCalendarInvite && formData.assignedTo) {
+          message += '\n行事曆檔案已下載，請點擊檔案加入到 iCloud 行事曆';
+        }
+        alert(message);
       }
     } catch (error) {
       console.error('建立工作失敗:', error);
@@ -416,6 +454,15 @@ export default function WorkManagementPage() {
                   <tr key={job.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="font-medium text-gray-900">{job.title}</div>
+                      {job.isRecurring && (
+                        <div className="text-xs text-indigo-600 mt-1">
+                          🔄 週期性 ({
+                            job.recurringPattern === 'daily' ? '每天' :
+                            job.recurringPattern === 'weekly' ? '每週' :
+                            '每月'
+                          })
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm text-gray-600 max-w-xs truncate">
@@ -573,6 +620,99 @@ export default function WorkManagementPage() {
                 <p className="text-xs text-gray-500 mt-1">
                   ⏰ 逾期規則：+1小時 7折、+1.5小時 5折、+2小時 3折、超過2小時 0點、超過當天扣點
                 </p>
+              </div>
+              
+              {/* 週期性工作選項 */}
+              <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.isRecurring}
+                    onChange={(e) => setFormData({ ...formData, isRecurring: e.target.checked })}
+                    className="mt-1 h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                  />
+                  <div className="flex-1">
+                    <div className="text-sm font-medium text-indigo-900">
+                      🔄 週期性工作
+                    </div>
+                    <div className="text-xs text-indigo-700 mt-1">
+                      自動重複建立工作，不需每天手動設定
+                    </div>
+                  </div>
+                </label>
+                
+                {/* 週期設定 */}
+                {formData.isRecurring && (
+                  <div className="mt-4 space-y-3 pl-7">
+                    <div>
+                      <label className="block text-xs font-medium text-indigo-900 mb-1">
+                        重複頻率
+                      </label>
+                      <select
+                        value={formData.recurringPattern}
+                        onChange={(e) => setFormData({ 
+                          ...formData, 
+                          recurringPattern: e.target.value as 'daily' | 'weekly' | 'monthly',
+                          recurringDays: [] // 切換時清空選擇的日期
+                        })}
+                        className="w-full px-3 py-2 border border-indigo-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm"
+                      >
+                        <option value="daily">每天</option>
+                        <option value="weekly">每週</option>
+                        <option value="monthly">每月</option>
+                      </select>
+                    </div>
+                    
+                    {/* 每週選擇星期幾 */}
+                    {formData.recurringPattern === 'weekly' && (
+                      <div>
+                        <label className="block text-xs font-medium text-indigo-900 mb-2">
+                          選擇星期幾
+                        </label>
+                        <div className="flex flex-wrap gap-2">
+                          {['日', '一', '二', '三', '四', '五', '六'].map((day, index) => (
+                            <label key={index} className="flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={formData.recurringDays.includes(index)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setFormData({
+                                      ...formData,
+                                      recurringDays: [...formData.recurringDays, index].sort()
+                                    });
+                                  } else {
+                                    setFormData({
+                                      ...formData,
+                                      recurringDays: formData.recurringDays.filter(d => d !== index)
+                                    });
+                                  }
+                                }}
+                                className="mr-1 h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                              />
+                              <span className="text-sm text-indigo-900">{day}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div>
+                      <label className="block text-xs font-medium text-indigo-900 mb-1">
+                        結束日期（選填）
+                      </label>
+                      <input
+                        type="date"
+                        value={formData.recurringEndDate}
+                        onChange={(e) => setFormData({ ...formData, recurringEndDate: e.target.value })}
+                        className="w-full px-3 py-2 border border-indigo-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm"
+                      />
+                      <p className="text-xs text-indigo-600 mt-1">
+                        不設定則持續重複
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
               
               {/* 加入行事曆選項 */}

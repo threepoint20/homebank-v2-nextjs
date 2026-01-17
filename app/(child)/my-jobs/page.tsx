@@ -74,6 +74,9 @@ export default function MyJobsPage() {
 
   const loadJobsWithUser = async (currentUser: User) => {
     try {
+      // 先檢查並生成週期性工作
+      await fetch('/api/jobs/recurring', { method: 'POST' });
+      
       const res = await fetch('/api/jobs');
       const data = await res.json();
       if (data.success) {

@@ -160,7 +160,18 @@ const data = await fetch(url);           // 直接下載資料
 **快取策略：**
 - 寫入時自動更新快取（put 會返回新的 URL）
 - 冷啟動時快取自動清空（記憶體重置）
+- 404 錯誤時自動清除快取（處理外部刪除檔案的情況）
 - 不需要手動清除快取（URL 固定，因為 addRandomSuffix: false）
+
+**快取失效處理：**
+```typescript
+// 邊緣情況：檔案在 Vercel 後台被手動刪除
+const response = await fetch(cachedUrl);
+if (response.status === 404) {
+  this.urlCache.delete(filename); // 清除快取
+  // 下次讀取時會重新呼叫 list API 查詢
+}
+```
 
 ✅ **2. 移除不必要的刪除操作**
 

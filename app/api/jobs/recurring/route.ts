@@ -1,46 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { Job } from '@/lib/types';
-import { shouldGenerateRecurringJob, generateNextRecurringJob } from '@/lib/utils/recurring-jobs';
+import { generateThisWeekRecurringJobs } from '@/lib/utils/recurring-jobs';
 
 /**
- * 檢查並生成週期性工作
- * 這個 API 可以被定期呼叫（例如每小時一次）來自動生成新的週期性工作
+ * 檢查並生成週期性工作（只生成本週內的）
+ * 這個 API 可以被定期呼叫來自動生成新的週期性工作
  */
 export async function POST(request: NextRequest) {
   try {
     const jobs = await db.read<Job>('jobs.json');
     const newJobs: Job[] = [];
     
-    // 找出所有週期性工作
-    const recurringJobs = jobs.filter(job => job.isRecurring);
+    // 找出所有週期性的原始工作（不是從週期性工作生成的）
+    const recurringJobs = jobs.filter(job => job.isRecurring && !job.parentJobId);
     
     console.log(`📋 檢查 ${recurringJobs.length} 個週期性工作`);
     
     for (const job of recurringJobs) {
-      // 檢查是否需要生成新工作
-      if (shouldGenerateRecurringJob(job)) {
-        const nextJob = generateNextRecurringJob(job);
-        
-        if (nextJob) {
-          // 檢查是否已經存在相同截止日期的工作（避免重複生成）
-          const existingJob = jobs.find(j => 
-            j.parentJobId === job.id && 
-            j.dueDate === nextJob.dueDate
-          );
-          
-          if (!existingJob) {
-            await db.create('jobs.json', nextJob);
-            newJobs.push(nextJob);
-            console.log(`✅ 生成新的週期性工作: ${nextJob.title} (截止: ${nextJob.dueDate})`);
-          }
-        }
+      // 為每個週期性工作生成本週所有需要的工作
+      const weekJobs = generateThisWeekRecurringJobs(job, jobs);
+      
+      for (const newJob of weekJobs) {
+        await db.create('jobs.json', newJob);
+        newJobs.push(newJob);
+        console.log(`✅ 生成新的週期性工作: ${newJob.title} (截止: ${newJob.dueDate})`);
       }
     }
     
     return NextResponse.json({ 
       success: true, 
-      message: `已生成 ${newJobs.length} 個新工作`,
+      message: `已生成 ${newJobs.length} 個本週工作`,
       newJobs: newJobs.length,
       jobs: newJobs
     });

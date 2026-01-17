@@ -177,6 +177,81 @@ export default function MyJobsPage() {
     });
   };
 
+  // 計算預期獎金（如果現在完成）
+  const calculateExpectedReward = (dueDate?: string, originalPoints?: number) => {
+    if (!dueDate || !originalPoints) {
+      return {
+        points: originalPoints || 0,
+        percentage: 100,
+        message: '準時完成可獲得全額獎勵',
+        color: 'text-green-600',
+      };
+    }
+
+    const now = new Date();
+    const due = new Date(dueDate);
+    const delayMs = now.getTime() - due.getTime();
+    const delayHours = delayMs / (1000 * 60 * 60);
+
+    // 檢查是否跨日
+    const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate());
+    const nowDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const isCrossDay = nowDay.getTime() > dueDay.getTime();
+
+    if (delayHours <= 0) {
+      // 準時
+      return {
+        points: originalPoints,
+        percentage: 100,
+        message: '✅ 準時完成可獲得全額獎勵',
+        color: 'text-green-600',
+      };
+    } else if (isCrossDay) {
+      // 跨日
+      return {
+        points: -originalPoints,
+        percentage: -100,
+        message: '❌ 已超過當天，完成將扣除點數',
+        color: 'text-red-600',
+      };
+    } else if (delayHours <= 1) {
+      // 逾期 1 小時內
+      const points = Math.floor(originalPoints * 0.7);
+      return {
+        points,
+        percentage: 70,
+        message: `⚠️ 逾期 1 小時內，可獲得 ${points} 點 (70%)`,
+        color: 'text-orange-600',
+      };
+    } else if (delayHours <= 1.5) {
+      // 逾期 1.5 小時內
+      const points = Math.floor(originalPoints * 0.5);
+      return {
+        points,
+        percentage: 50,
+        message: `⚠️ 逾期 1.5 小時內，可獲得 ${points} 點 (50%)`,
+        color: 'text-orange-600',
+      };
+    } else if (delayHours <= 2) {
+      // 逾期 2 小時內
+      const points = Math.floor(originalPoints * 0.3);
+      return {
+        points,
+        percentage: 30,
+        message: `⚠️ 逾期 2 小時內，可獲得 ${points} 點 (30%)`,
+        color: 'text-red-600',
+      };
+    } else {
+      // 逾期超過 2 小時
+      return {
+        points: 0,
+        percentage: 0,
+        message: '❌ 逾期超過 2 小時，無法獲得獎勵',
+        color: 'text-red-600',
+      };
+    }
+  };
+
   const handleAcceptJob = async (jobId: string) => {
     if (!user) return;
     
@@ -376,12 +451,15 @@ export default function MyJobsPage() {
             <div className="p-6 space-y-4">
               {myJobs.map((job) => {
                 const dueDateStatus = getDueDateStatus(job.dueDate);
+                const expectedReward = calculateExpectedReward(job.dueDate, job.points);
                 return (
                   <div key={job.id} className="border border-orange-200 bg-orange-50 rounded-lg p-4">
                     <div className="flex justify-between items-start mb-2">
                       <div className="flex-1">
                         <h3 className="text-lg font-semibold text-gray-900">{job.title}</h3>
                         <p className="text-sm text-gray-600 mt-1">{job.description}</p>
+                        
+                        {/* 截止日期標籤 */}
                         {job.dueDate && (
                           <div className={`mt-2 inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${dueDateStatus?.bgColor} ${dueDateStatus?.color} ${dueDateStatus?.borderColor} border`}>
                             <span>{dueDateStatus?.icon}</span>
@@ -389,10 +467,57 @@ export default function MyJobsPage() {
                             <span className="ml-1">({dueDateStatus?.text})</span>
                           </div>
                         )}
+                        
+                        {/* 獎金計算說明 */}
+                        {job.dueDate && (
+                          <div className="mt-3 p-3 bg-white rounded-lg border border-gray-200">
+                            <div className="flex items-start gap-2">
+                              <span className="text-lg">💰</span>
+                              <div className="flex-1">
+                                <div className="text-xs font-semibold text-gray-700 mb-1">
+                                  獎金計算：
+                                </div>
+                                <div className={`text-sm font-medium ${expectedReward.color}`}>
+                                  {expectedReward.message}
+                                </div>
+                                {expectedReward.percentage !== 100 && expectedReward.percentage !== -100 && (
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    原始獎勵：{job.points} 點 → 實際獲得：{expectedReward.points} 點
+                                  </div>
+                                )}
+                                {expectedReward.percentage === -100 && (
+                                  <div className="text-xs text-red-500 mt-1 font-semibold">
+                                    ⚠️ 將扣除 {job.points} 點！請盡快完成
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            
+                            {/* 折扣規則說明 */}
+                            <div className="mt-2 pt-2 border-t border-gray-200">
+                              <div className="text-xs text-gray-600">
+                                <div className="font-semibold mb-1">⏰ 逾期規則：</div>
+                                <div className="space-y-0.5 ml-2">
+                                  <div>• 準時完成：<span className="text-green-600 font-medium">100%</span></div>
+                                  <div>• 逾期 1 小時內：<span className="text-orange-600 font-medium">70%</span></div>
+                                  <div>• 逾期 1.5 小時內：<span className="text-orange-600 font-medium">50%</span></div>
+                                  <div>• 逾期 2 小時內：<span className="text-red-600 font-medium">30%</span></div>
+                                  <div>• 逾期超過 2 小時：<span className="text-red-600 font-medium">0%</span></div>
+                                  <div>• 超過當天：<span className="text-red-600 font-medium">扣點</span></div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                       <div className="text-right ml-4">
                         <div className="text-2xl font-bold text-blue-600">{job.points}</div>
-                        <div className="text-xs text-gray-500">點數</div>
+                        <div className="text-xs text-gray-500">原始點數</div>
+                        {job.dueDate && expectedReward.percentage !== 100 && (
+                          <div className={`text-lg font-bold mt-1 ${expectedReward.color}`}>
+                            {expectedReward.points > 0 ? '+' : ''}{expectedReward.points}
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="flex justify-end mt-4">

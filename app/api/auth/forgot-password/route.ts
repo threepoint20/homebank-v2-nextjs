@@ -58,33 +58,25 @@ export async function POST(request: NextRequest) {
                       : 'http://localhost:3000');
 
     // 發送郵件
-    let resetUrl = '';
     try {
-      resetUrl = await sendResetEmail(user.email, user.name, baseUrl, token);
+      await sendResetEmail(user.email, user.name, baseUrl, token);
+      
+      // 郵件發送成功
+      return NextResponse.json({
+        success: true,
+        message: '重設連結已發送至您的 Email',
+      });
     } catch (emailError) {
       console.error('發送郵件失敗:', emailError);
       
-      // 如果是測試網域限制錯誤，返回特殊訊息
-      const errorMessage = emailError instanceof Error ? emailError.message : '';
-      if (errorMessage.includes('Testing domain restriction') || errorMessage.includes('Domain not verified')) {
-        return NextResponse.json({
-          success: true,
-          message: '重設連結已生成（測試模式）',
-          resetUrl: `${baseUrl}/reset-password?token=${token}`,
-          note: '由於使用測試網域，郵件無法發送。請使用以下連結重設密碼：',
-        });
-      }
-      
-      return NextResponse.json(
-        { success: false, message: '發送郵件失敗，請稍後再試' },
-        { status: 500 }
-      );
+      // 任何錯誤都返回測試模式（包含 API Key 未設定、測試網域限制等）
+      return NextResponse.json({
+        success: true,
+        message: '重設連結已生成（測試模式）',
+        resetUrl: `${baseUrl}/reset-password?token=${token}`,
+        testMode: true,
+      });
     }
-
-    return NextResponse.json({
-      success: true,
-      message: '重設連結已發送至您的 Email',
-    });
   } catch (error) {
     console.error('忘記密碼處理失敗:', error);
     return NextResponse.json(
@@ -99,10 +91,11 @@ async function sendResetEmail(email: string, name: string, baseUrl: string, toke
   const resetUrl = `${baseUrl}/reset-password?token=${token}`;
   const resendApiKey = process.env.RESEND_API_KEY;
 
+  // 如果沒有設定 API Key，直接返回連結（測試模式）
   if (!resendApiKey) {
-    console.warn('⚠️ RESEND_API_KEY 未設定，郵件功能將無法使用');
-    console.log('📧 重設密碼連結（開發模式）:', resetUrl);
-    return resetUrl;
+    console.warn('⚠️ RESEND_API_KEY 未設定，使用測試模式');
+    console.log('📧 重設密碼連結（測試模式）:', resetUrl);
+    throw new Error('Testing mode: No API key configured');
   }
 
   const response = await fetch('https://api.resend.com/emails', {
@@ -112,7 +105,7 @@ async function sendResetEmail(email: string, name: string, baseUrl: string, toke
       'Authorization': `Bearer ${resendApiKey}`,
     },
     body: JSON.stringify({
-      from: process.env.EMAIL_FROM || 'HomeBank <noreply@homebank.com>',
+      from: process.env.EMAIL_FROM || 'HomeBank <onboarding@resend.dev>',
       to: email,
       subject: '重設您的 HomeBank 密碼',
       html: `
@@ -160,7 +153,7 @@ async function sendResetEmail(email: string, name: string, baseUrl: string, toke
 
   if (!response.ok) {
     const error = await response.text();
-    throw new Error(`Resend API 錯誤: ${error}`);
+    throw new Error(error);
   }
   
   return resetUrl;

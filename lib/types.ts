@@ -19,10 +19,11 @@ export interface Job {
   points: number;
   createdBy: string;
   assignedTo?: string;
+  assignedAt?: string; // 指派時間
   status: 'pending' | 'in_progress' | 'completed' | 'approved';
   createdAt: string;
-  completedAt?: string;
-  approvedAt?: string;
+  completedAt?: string; // 子女提交完成時間
+  approvedAt?: string; // 父母審核通過時間
 }
 
 export interface Reward {

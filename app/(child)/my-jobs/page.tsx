@@ -236,6 +236,12 @@ export default function MyJobsPage() {
             >
               獎勵商店
             </button>
+            <button 
+              onClick={() => router.push('/job-history')}
+              className="py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 font-medium text-sm"
+            >
+              完成歷史
+            </button>
           </div>
         </div>
       </nav>

@@ -39,6 +39,7 @@ export async function POST(
     const updatedJob = await db.update<Job>('jobs.json', jobId, {
       status: 'in_progress',
       assignedTo: userId,
+      assignedAt: new Date().toISOString(), // 記錄接取時間
     });
 
     return NextResponse.json({ success: true, job: updatedJob });

@@ -55,6 +55,7 @@ export async function POST(request: NextRequest) {
     // 如果有指派給特定子女
     if (assignedTo) {
       newJob.assignedTo = assignedTo;
+      newJob.assignedAt = new Date().toISOString(); // 記錄指派時間
       newJob.status = 'in_progress';
     }
 

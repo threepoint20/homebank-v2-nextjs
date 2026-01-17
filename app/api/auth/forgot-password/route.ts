@@ -1,17 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { User } from '@/lib/types';
+import { User, PasswordResetToken } from '@/lib/types';
 
-// 儲存重設 token（在生產環境應該使用資料庫）
-// 使用全域變數以在 serverless 環境中保持狀態
-declare global {
-  var resetTokens: Map<string, { userId: string; email: string; expiresAt: number }> | undefined;
-}
-
-const resetTokens = globalThis.resetTokens ?? new Map<string, { userId: string; email: string; expiresAt: number }>();
-globalThis.resetTokens = resetTokens;
-
-// 生成隨機 token（不使用 crypto 模組以支援 Edge Runtime）
+// 生成隨機 token
 function generateToken(): string {
   const array = new Uint8Array(32);
   crypto.getRandomValues(array);
@@ -44,12 +35,18 @@ export async function POST(request: NextRequest) {
     const token = generateToken();
     const expiresAt = Date.now() + 60 * 60 * 1000; // 1 小時後過期
 
-    // 儲存 token
-    resetTokens.set(token, {
+    // 儲存 token 到資料庫
+    const resetToken: PasswordResetToken = {
+      id: Date.now().toString(),
       userId: user.id,
       email: user.email,
+      token,
       expiresAt,
-    });
+      createdAt: new Date().toISOString(),
+      used: false,
+    };
+    
+    await db.create('password-reset-tokens.json', resetToken);
 
     // 建立重設連結
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 

@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-// 取得全域的 resetTokens
-declare global {
-  var resetTokens: Map<string, { userId: string; email: string; expiresAt: number }> | undefined;
-}
+import { db } from '@/lib/db';
+import { PasswordResetToken } from '@/lib/types';
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,16 +13,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const resetTokens = globalThis.resetTokens;
-    
-    if (!resetTokens) {
-      return NextResponse.json({
-        valid: false,
-        message: '系統錯誤：Token 儲存未初始化',
-      });
-    }
-
-    const tokenData = resetTokens.get(token);
+    // 從資料庫查詢 token
+    const tokenData = await db.findOne<PasswordResetToken>(
+      'password-reset-tokens.json',
+      (t) => t.token === token
+    );
 
     if (!tokenData) {
       return NextResponse.json({
@@ -34,9 +26,16 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // 檢查是否已使用
+    if (tokenData.used) {
+      return NextResponse.json({
+        valid: false,
+        message: '此重設連結已被使用',
+      });
+    }
+
     // 檢查是否過期
     if (Date.now() > tokenData.expiresAt) {
-      resetTokens.delete(token);
       return NextResponse.json({
         valid: false,
         message: '重設連結已過期，請重新申請',

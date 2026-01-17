@@ -6,7 +6,7 @@ export interface User {
   password: string;
   name: string;
   role: UserRole;
-  parentId?: string; // 子女帳號專用，指向父母的 ID
+  parentId?: string;
   points?: number;
   avatar?: string;
   createdAt: string;
@@ -19,11 +19,11 @@ export interface Job {
   points: number;
   createdBy: string;
   assignedTo?: string;
-  assignedAt?: string; // 指派時間
+  assignedAt?: string;
   status: 'pending' | 'in_progress' | 'completed' | 'approved';
   createdAt: string;
-  completedAt?: string; // 子女提交完成時間
-  approvedAt?: string; // 父母審核通過時間
+  completedAt?: string;
+  approvedAt?: string;
 }
 
 export interface Reward {
@@ -31,7 +31,6 @@ export interface Reward {
   title: string;
   description: string;
   points: number;
-  imageUrl?: string;
   stock: number;
   createdBy: string;
   createdAt: string;
@@ -47,8 +46,12 @@ export interface PointTransaction {
   createdAt: string;
 }
 
-export interface AuthResponse {
-  success: boolean;
-  user?: User;
-  message?: string;
+export interface PasswordResetToken {
+  id: string;
+  userId: string;
+  email: string;
+  token: string;
+  expiresAt: number;
+  createdAt: string;
+  used?: boolean;
 }

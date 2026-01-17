@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { User } from '@/lib/types';
+import { User, PasswordResetToken } from '@/lib/types';
 import { PasswordService } from '@/lib/auth/password';
-
-// 取得全域的 resetTokens
-declare global {
-  var resetTokens: Map<string, { userId: string; email: string; expiresAt: number }> | undefined;
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,17 +14,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const resetTokens = globalThis.resetTokens;
-    
-    if (!resetTokens) {
-      return NextResponse.json(
-        { success: false, message: '系統錯誤：Token 儲存未初始化' },
-        { status: 500 }
-      );
-    }
-
-    // 驗證 token
-    const tokenData = resetTokens.get(token);
+    // 從資料庫查詢 token
+    const tokenData = await db.findOne<PasswordResetToken>(
+      'password-reset-tokens.json',
+      (t) => t.token === token
+    );
 
     if (!tokenData) {
       return NextResponse.json(
@@ -38,9 +27,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 檢查是否已使用
+    if (tokenData.used) {
+      return NextResponse.json(
+        { success: false, message: '此重設連結已被使用' },
+        { status: 400 }
+      );
+    }
+
     // 檢查是否過期
     if (Date.now() > tokenData.expiresAt) {
-      resetTokens.delete(token);
       return NextResponse.json(
         { success: false, message: '重設連結已過期，請重新申請' },
         { status: 400 }
@@ -64,8 +60,10 @@ export async function POST(request: NextRequest) {
       password: hashedPassword 
     });
 
-    // 刪除已使用的 token
-    resetTokens.delete(token);
+    // 標記 token 為已使用
+    await db.update<PasswordResetToken>('password-reset-tokens.json', tokenData.id, {
+      used: true,
+    });
 
     return NextResponse.json({
       success: true,

@@ -128,7 +128,41 @@ T4: 用戶 B 新增用戶 Y，寫回檔案 (11 個用戶)
 
 #### 已實作的優化
 
-✅ **移除不必要的刪除操作**
+✅ **1. URL 快取 (In-Memory Cache)**
+
+**問題：**
+每次讀取資料都需要 2 次 HTTP 請求：
+1. 呼叫 `list` API 查詢 Blob URL
+2. 呼叫 `fetch` 下載檔案內容
+
+**解決方案：**
+將 Blob URL 快取在記憶體中（Map 結構）
+
+```typescript
+private urlCache: Map<string, string> = new Map();
+
+// 首次讀取
+const url = await list({ prefix: key }); // 查詢 URL
+this.urlCache.set(filename, url);        // 快取 URL
+const data = await fetch(url);           // 下載資料
+
+// 後續讀取
+const url = this.urlCache.get(filename); // 從快取取得 URL
+const data = await fetch(url);           // 直接下載資料
+```
+
+**效能提升：**
+- 首次讀取：2 次請求（list + fetch）
+- 後續讀取：1 次請求（fetch）
+- 減少 50% 的 API 呼叫
+- 特別適合 Serverless 熱啟動場景
+
+**快取策略：**
+- 寫入時自動更新快取（put 會返回新的 URL）
+- 冷啟動時快取自動清空（記憶體重置）
+- 不需要手動清除快取（URL 固定，因為 addRandomSuffix: false）
+
+✅ **2. 移除不必要的刪除操作**
 
 **優化前：**
 ```typescript
@@ -153,12 +187,12 @@ await put(key, data, {
 - 寫入速度提升約 50%
 - 降低並發衝突機率
 
-✅ **快取控制**
+✅ **3. 快取控制**
 ```typescript
 cacheControlMaxAge: 0  // 不快取，確保資料即時性
 ```
 
-✅ **前端自動重新整理**
+✅ **4. 前端自動重新整理**
 - 頁面獲得焦點時自動重新載入
 - 減少使用者看到過期資料的機率
 

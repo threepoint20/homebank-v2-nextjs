@@ -155,6 +155,8 @@ export default function MyJobsPage() {
     
     setActionLoading(jobId);
     try {
+      console.log('🚀 提交工作:', { jobId, userId: user.id });
+      
       const res = await fetch(`/api/jobs/${jobId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -162,15 +164,18 @@ export default function MyJobsPage() {
       });
 
       const data = await res.json();
+      console.log('📥 API 回應:', data);
+      
       if (data.success) {
         alert('✅ 已提交完成，等待父母審核！');
         loadJobs();
       } else {
-        alert(data.error || '提交失敗');
+        console.error('❌ 提交失敗:', data);
+        alert(`提交失敗: ${data.error}${data.details ? '\n詳情: ' + data.details : ''}`);
       }
     } catch (error) {
-      console.error('提交失敗:', error);
-      alert('提交失敗');
+      console.error('❌ 提交失敗 (網路錯誤):', error);
+      alert('提交失敗：網路錯誤');
     } finally {
       setActionLoading(null);
     }

@@ -144,13 +144,18 @@ export default function WorkManagementPage() {
 
       const data = await res.json();
       if (data.success) {
+        // 如果勾選了加入行事曆，自動下載 .ics 檔案
+        if (formData.sendCalendarInvite && formData.assignedTo && formData.dueDate) {
+          await downloadCalendarFile(data.job);
+        }
+        
         setShowModal(false);
         setFormData({ title: '', description: '', points: '', assignedTo: '', dueDate: '', sendCalendarInvite: false });
         loadData();
         
         // 顯示成功訊息
         if (formData.sendCalendarInvite && formData.assignedTo) {
-          alert('✅ 工作已建立，行事曆邀請已發送！');
+          alert('✅ 工作已建立！行事曆檔案已下載，請點擊檔案加入到 iCloud 行事曆');
         } else {
           alert('✅ 工作已建立！');
         }
@@ -158,6 +163,49 @@ export default function WorkManagementPage() {
     } catch (error) {
       console.error('建立工作失敗:', error);
       alert('建立工作失敗');
+    }
+  };
+
+  // 下載行事曆檔案
+  const downloadCalendarFile = async (job: any) => {
+    try {
+      // 獲取子女和父母資訊
+      const childId = job.assignedTo;
+      const child = children.find(c => c.id === childId);
+      
+      if (!child) {
+        console.error('找不到子女資訊');
+        return;
+      }
+
+      // 呼叫 API 生成 .ics 檔案
+      const response = await fetch('/api/calendar/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          job,
+          childName: child.name,
+          parentName: user?.name,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('生成行事曆檔案失敗');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `HomeBank-${job.title}.ics`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      console.log('✅ 行事曆檔案已下載');
+    } catch (error) {
+      console.error('下載行事曆檔案失敗:', error);
     }
   };
 
@@ -527,7 +575,7 @@ export default function WorkManagementPage() {
                 </p>
               </div>
               
-              {/* 發送行事曆邀請選項 */}
+              {/* 加入行事曆選項 */}
               {formData.assignedTo && formData.dueDate && (
                 <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
                   <label className="flex items-start gap-3 cursor-pointer">
@@ -539,10 +587,10 @@ export default function WorkManagementPage() {
                     />
                     <div className="flex-1">
                       <div className="text-sm font-medium text-purple-900">
-                        📅 發送行事曆邀請到子女郵箱
+                        📅 下載行事曆檔案（.ics）
                       </div>
                       <div className="text-xs text-purple-700 mt-1">
-                        子女將收到 .ics 檔案，可以直接加入 iOS/Android 行事曆，並設定提醒通知
+                        建立工作後自動下載 .ics 檔案，點擊檔案即可加入到 iCloud 行事曆，所有 Apple 裝置（Mac/iPad/iPhone）都會同步顯示
                       </div>
                     </div>
                   </label>
@@ -553,7 +601,7 @@ export default function WorkManagementPage() {
               {formData.assignedTo && !formData.dueDate && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                   <p className="text-xs text-yellow-800">
-                    💡 提示：設定截止日期後，可以選擇發送行事曆邀請給子女
+                    💡 提示：設定截止日期後，可以選擇下載行事曆檔案加入到 iCloud 行事曆
                   </p>
                 </div>
               )}

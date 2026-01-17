@@ -15,6 +15,7 @@ interface Reward {
   description: string;
   points: number;
   stock: number;
+  createdBy: string;
   createdAt: string;
 }
 
@@ -68,11 +69,18 @@ export default function RewardManagementPage() {
   }, [router]);
 
   const loadRewards = async () => {
+    // 取得當前用戶
+    const userStr = localStorage.getItem('user');
+    if (!userStr) return;
+    const currentUser = JSON.parse(userStr);
+    
     try {
       const res = await fetch('/api/rewards');
       const data = await res.json();
       if (data.success) {
-        setRewards(data.rewards);
+        // 只顯示當前父母創建的獎勵
+        const myRewards = data.rewards.filter((reward: Reward) => reward.createdBy === currentUser.id);
+        setRewards(myRewards);
       }
     } catch (error) {
       console.error('載入獎勵失敗:', error);

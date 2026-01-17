@@ -87,7 +87,9 @@ export default function WorkManagementPage() {
       const jobsRes = await fetch('/api/jobs');
       const jobsData = await jobsRes.json();
       if (jobsData.success) {
-        setJobs(jobsData.jobs);
+        // 只顯示當前父母創建的工作
+        const myJobs = jobsData.jobs.filter((job: Job) => job.createdBy === currentUser.id);
+        setJobs(myJobs);
       }
 
       // 載入子女列表

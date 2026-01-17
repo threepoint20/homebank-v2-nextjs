@@ -227,9 +227,19 @@ class BlobDatabase {
       await this.write('jobs.json', defaultData.jobs);
       await this.write('rewards.json', defaultData.rewards);
       await this.write('transactions.json', defaultData.transactions);
+      await this.write('password-reset-tokens.json', []); // 初始化 password-reset-tokens
       console.log('✅ Blob 資料庫初始化完成！');
       return true;
     }
+    
+    // 確保 password-reset-tokens.json 存在
+    try {
+      await this.read('password-reset-tokens.json');
+    } catch (error) {
+      console.log('📝 初始化 password-reset-tokens.json');
+      await this.write('password-reset-tokens.json', []);
+    }
+    
     console.log('ℹ️ 資料庫已存在，跳過初始化');
     return false;
   }

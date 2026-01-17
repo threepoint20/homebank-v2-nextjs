@@ -80,21 +80,33 @@ export default function DashboardPage() {
         usersRes.json(),
       ]);
 
-      setStats({
-        pendingJobs: jobsData.success 
-          ? jobsData.jobs.filter((j: any) => j.status === 'pending').length 
-          : 0,
-        availableRewards: rewardsData.success ? rewardsData.rewards.length : 0,
-        totalMembers: usersData.success ? usersData.users.length : 0,
-      });
+      // 只計算自己創建的待完成工作
+      const myPendingJobs = jobsData.success 
+        ? jobsData.jobs.filter((j: any) => j.createdBy === currentUser.id && j.status === 'pending').length 
+        : 0;
+
+      // 只計算自己創建的可用獎勵
+      const myAvailableRewards = rewardsData.success 
+        ? rewardsData.rewards.filter((r: any) => r.createdBy === currentUser.id).length 
+        : 0;
 
       // 載入子女列表（只顯示自己的子女）
+      let childrenList: User[] = [];
       if (usersData.success) {
-        const childrenList = usersData.users.filter(
+        childrenList = usersData.users.filter(
           (u: User) => u.role === 'child' && u.parentId === currentUser.id
         );
         setChildren(childrenList);
       }
+
+      // 家庭成員 = 自己 + 自己的子女
+      const totalMembers = 1 + childrenList.length;
+
+      setStats({
+        pendingJobs: myPendingJobs,
+        availableRewards: myAvailableRewards,
+        totalMembers: totalMembers,
+      });
     } catch (error) {
       console.error('載入統計失敗:', error);
     } finally {

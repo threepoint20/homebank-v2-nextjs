@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { Job, User, PointTransaction } from '@/lib/types';
+import { calculateDiscount, calculateActualPoints } from '@/lib/utils/discount';
 
 // 父母審核工作
 export async function POST(
@@ -50,25 +51,44 @@ export async function POST(
       );
     }
 
+    // 計算折扣和實際點數
+    const completedAt = job.completedAt || new Date().toISOString();
+    const discountInfo = calculateDiscount(job.dueDate, completedAt);
+    const actualPoints = calculateActualPoints(job.points, discountInfo.discount);
+
+    console.log('📊 折扣計算:', {
+      jobTitle: job.title,
+      dueDate: job.dueDate,
+      completedAt,
+      originalPoints: job.points,
+      discount: discountInfo.discount,
+      actualPoints,
+      message: discountInfo.message,
+    });
+
     // 審核通過，更新工作狀態
     const approvedJob = await db.update<Job>('jobs.json', jobId, {
       status: 'approved',
       approvedAt: new Date().toISOString(),
+      actualPoints,
+      discount: discountInfo.discount,
     });
 
     // 發放點數給子女
     const child = await db.findOne<User>('users.json', (u) => u.id === job.assignedTo);
     if (child) {
-      const newPoints = (child.points || 0) + job.points;
+      const newPoints = (child.points || 0) + actualPoints;
       await db.update<User>('users.json', job.assignedTo, { points: newPoints });
 
       // 記錄交易
       const transaction: PointTransaction = {
         id: Date.now().toString(),
         userId: job.assignedTo,
-        amount: job.points,
-        type: 'earn',
-        description: `完成工作：${job.title}`,
+        amount: actualPoints,
+        type: actualPoints >= 0 ? 'earn' : 'spend',
+        description: actualPoints >= 0 
+          ? `完成工作：${job.title}${discountInfo.discount !== 100 ? ` (${discountInfo.message})` : ''}`
+          : `工作逾期扣點：${job.title} (${discountInfo.message})`,
         relatedId: jobId,
         createdAt: new Date().toISOString(),
       };
@@ -78,7 +98,10 @@ export async function POST(
     return NextResponse.json({ 
       success: true, 
       job: approvedJob,
-      pointsAwarded: job.points,
+      pointsAwarded: actualPoints,
+      originalPoints: job.points,
+      discount: discountInfo.discount,
+      discountMessage: discountInfo.message,
       childName: child?.name,
     });
   } catch (error) {

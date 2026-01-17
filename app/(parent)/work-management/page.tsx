@@ -38,6 +38,7 @@ export default function WorkManagementPage() {
     description: '',
     points: '',
     assignedTo: '', // 新增：指派給特定子女
+    dueDate: '', // 截止日期 (YYYY-MM-DDTHH:mm 格式)
   });
 
   useEffect(() => {
@@ -119,6 +120,11 @@ export default function WorkManagementPage() {
         createdBy: user?.id,
       };
 
+      // 如果有設定截止日期，轉換為 ISO 8601 格式
+      if (formData.dueDate) {
+        jobData.dueDate = new Date(formData.dueDate).toISOString();
+      }
+
       // 如果有指派給特定子女，加入 assignedTo 和設定狀態為 in_progress
       if (formData.assignedTo) {
         jobData.assignedTo = formData.assignedTo;
@@ -134,7 +140,7 @@ export default function WorkManagementPage() {
       const data = await res.json();
       if (data.success) {
         setShowModal(false);
-        setFormData({ title: '', description: '', points: '', assignedTo: '' });
+        setFormData({ title: '', description: '', points: '', assignedTo: '', dueDate: '' });
         loadData();
       }
     } catch (error) {
@@ -184,8 +190,20 @@ export default function WorkManagementPage() {
           )
         );
         
-        // 然後顯示成功訊息
-        alert(`✅ 審核通過！已發放 ${data.pointsAwarded} 點數給 ${data.childName}`);
+        // 顯示審核結果訊息
+        let message = `✅ 審核通過！\n`;
+        message += `子女：${data.childName}\n`;
+        message += `原始點數：${data.originalPoints} 點\n`;
+        
+        if (data.discount !== 100) {
+          message += `折扣：${data.discount}%\n`;
+          message += `實際獲得：${data.pointsAwarded} 點\n`;
+          message += `${data.discountMessage}`;
+        } else {
+          message += `獲得點數：${data.pointsAwarded} 點`;
+        }
+        
+        alert(message);
         
         // 最後重新載入完整資料（確保資料一致性）
         loadData();
@@ -463,6 +481,20 @@ export default function WorkManagementPage() {
                 </select>
                 <p className="text-xs text-gray-500 mt-1">
                   選擇特定子女會直接指派給他，否則所有子女都可以接取
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  截止日期（選填）
+                </label>
+                <input
+                  type="datetime-local"
+                  value={formData.dueDate}
+                  onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  ⏰ 逾期規則：+1小時 7折、+1.5小時 5折、+2小時 3折、超過2小時 0點、超過當天扣點
                 </p>
               </div>
               <div className="flex gap-3 pt-4">

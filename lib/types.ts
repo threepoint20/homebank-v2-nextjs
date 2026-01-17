@@ -20,10 +20,13 @@ export interface Job {
   createdBy: string;
   assignedTo?: string;
   assignedAt?: string;
+  dueDate?: string; // 截止日期 (ISO 8601 格式)
   status: 'pending' | 'in_progress' | 'completed' | 'approved';
   createdAt: string;
   completedAt?: string;
   approvedAt?: string;
+  actualPoints?: number; // 實際獲得的點數（考慮折扣後）
+  discount?: number; // 折扣百分比 (0-100)
 }
 
 export interface Reward {

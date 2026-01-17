@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { title, description, points, createdBy, assignedTo, status } = body;
+    const { title, description, points, createdBy, assignedTo, status, dueDate } = body;
 
     if (!title || !points || !createdBy) {
       return NextResponse.json(
@@ -51,6 +51,11 @@ export async function POST(request: NextRequest) {
       status: status || 'pending', // 如果有指派，狀態為 in_progress
       createdAt: new Date().toISOString(),
     };
+
+    // 如果有截止日期
+    if (dueDate) {
+      newJob.dueDate = dueDate;
+    }
 
     // 如果有指派給特定子女
     if (assignedTo) {

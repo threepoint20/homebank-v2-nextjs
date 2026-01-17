@@ -150,6 +150,10 @@ export default function WorkManagementPage() {
 
       const data = await res.json();
       if (data.success) {
+        // 立即更新本地狀態
+        setJobs(prevJobs => prevJobs.filter(job => job.id !== id));
+        
+        // 然後重新載入完整資料（確保資料一致性）
         loadData();
       }
     } catch (error) {
@@ -169,7 +173,19 @@ export default function WorkManagementPage() {
 
       const data = await res.json();
       if (data.success) {
+        // 立即更新本地狀態
+        setJobs(prevJobs => 
+          prevJobs.map(job => 
+            job.id === jobId 
+              ? { ...job, status: 'approved' as const, approvedAt: new Date().toISOString() }
+              : job
+          )
+        );
+        
+        // 然後顯示成功訊息
         alert(`✅ 審核通過！已發放 ${data.pointsAwarded} 點數給 ${data.childName}`);
+        
+        // 最後重新載入完整資料（確保資料一致性）
         loadData();
       } else {
         alert(data.error || '審核失敗');

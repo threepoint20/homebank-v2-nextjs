@@ -6,6 +6,8 @@ export async function POST(request: NextRequest) {
   try {
     const { email, password, name, role } = await request.json();
 
+    console.log('📝 收到註冊請求:', { email, name, role });
+
     if (!email || !password || !name || !role) {
       return NextResponse.json(
         { success: false, message: '請提供完整資訊' },
@@ -13,22 +15,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const user = await authService.register(email, password, name, role as UserRole);
+    const result = await authService.register(email, password, name, role as UserRole);
 
-    if (!user) {
+    if (!result.user) {
       return NextResponse.json(
-        { success: false, message: '此 email 已被註冊' },
+        { 
+          success: false, 
+          message: result.errors?.join(', ') || '註冊失敗',
+          errors: result.errors 
+        },
         { status: 400 }
       );
     }
 
+    console.log('✅ 註冊成功:', result.user.email);
+
     return NextResponse.json({
       success: true,
-      user,
+      user: result.user,
     });
-  } catch (error) {
+  } catch (error: any) {
+    console.error('❌ 註冊失敗:', error);
     return NextResponse.json(
-      { success: false, message: '註冊失敗' },
+      { success: false, message: `註冊失敗: ${error?.message || '未知錯誤'}` },
       { status: 500 }
     );
   }

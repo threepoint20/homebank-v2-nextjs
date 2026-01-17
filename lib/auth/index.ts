@@ -1,20 +1,28 @@
 import { User, UserRole } from '../types';
 import { db } from '../db';
+import { PasswordService } from './password';
 
 export class AuthService {
   async login(email: string, password: string): Promise<User | null> {
     const user = await db.findOne<User>(
       'users.json',
-      (u) => u.email === email && u.password === password
+      (u) => u.email === email
     );
     
-    if (user) {
-      // 不返回密碼
-      const { password: _, ...userWithoutPassword } = user;
-      return userWithoutPassword as User;
+    if (!user) {
+      return null;
+    }
+
+    // 驗證密碼
+    const isPasswordValid = await PasswordService.verify(password, user.password);
+    
+    if (!isPasswordValid) {
+      return null;
     }
     
-    return null;
+    // 不返回密碼
+    const { password: _, ...userWithoutPassword } = user;
+    return userWithoutPassword as User;
   }
 
   async register(
@@ -22,7 +30,7 @@ export class AuthService {
     password: string,
     name: string,
     role: UserRole
-  ): Promise<User | null> {
+  ): Promise<{ user: User | null; errors?: string[] }> {
     // 檢查用戶是否已存在
     const existing = await db.findOne<User>(
       'users.json',
@@ -30,13 +38,22 @@ export class AuthService {
     );
     
     if (existing) {
-      return null;
+      return { user: null, errors: ['此 email 已被註冊'] };
     }
+
+    // 驗證密碼強度
+    const passwordValidation = PasswordService.validatePasswordStrength(password);
+    if (!passwordValidation.isValid) {
+      return { user: null, errors: passwordValidation.errors };
+    }
+
+    // 雜湊密碼
+    const hashedPassword = await PasswordService.hash(password);
 
     const newUser: User = {
       id: Date.now().toString(),
       email,
-      password,
+      password: hashedPassword,
       name,
       role,
       points: role === 'child' ? 0 : undefined,
@@ -46,7 +63,39 @@ export class AuthService {
     await db.create('users.json', newUser);
     
     const { password: _, ...userWithoutPassword } = newUser;
-    return userWithoutPassword as User;
+    return { user: userWithoutPassword as User };
+  }
+
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string
+  ): Promise<{ success: boolean; errors?: string[] }> {
+    // 取得用戶
+    const user = await db.findOne<User>('users.json', (u) => u.id === userId);
+    if (!user) {
+      return { success: false, errors: ['用戶不存在'] };
+    }
+
+    // 驗證當前密碼
+    const isCurrentPasswordValid = await PasswordService.verify(currentPassword, user.password);
+    if (!isCurrentPasswordValid) {
+      return { success: false, errors: ['當前密碼錯誤'] };
+    }
+
+    // 驗證新密碼強度
+    const passwordValidation = PasswordService.validatePasswordStrength(newPassword);
+    if (!passwordValidation.isValid) {
+      return { success: false, errors: passwordValidation.errors };
+    }
+
+    // 雜湊新密碼
+    const hashedNewPassword = await PasswordService.hash(newPassword);
+
+    // 更新密碼
+    await db.update('users.json', userId, { password: hashedNewPassword });
+
+    return { success: true };
   }
 
   async getUserById(id: string): Promise<User | null> {
@@ -69,6 +118,7 @@ export class AuthService {
         'delete_reward',
         'view_all_users',
         'manage_points',
+        'change_password',
       ],
       child: [
         'view_jobs',
@@ -76,6 +126,7 @@ export class AuthService {
         'view_rewards',
         'redeem_reward',
         'view_own_points',
+        'change_password',
       ],
     };
 

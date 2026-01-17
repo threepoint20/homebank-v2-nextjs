@@ -146,7 +146,7 @@ class BlobDatabase {
   // 初始化資料庫（僅在首次使用時）
   async initialize() {
     const { getDefaultData } = await import('./seed');
-    const defaultData = getDefaultData();
+    const defaultData = await getDefaultData();
     
     // 檢查是否已初始化
     const users = await this.read('users.json');

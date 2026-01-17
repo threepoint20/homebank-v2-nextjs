@@ -1,13 +1,17 @@
 import { User, Job, Reward } from '../types';
 import { db } from './index';
+import { PasswordService } from '../auth/password';
 
-export function getDefaultData() {
+export async function getDefaultData() {
+  // 雜湊預設密碼
+  const hashedPassword = await PasswordService.hash('password123');
+
   // 創建測試用戶
   const users: User[] = [
     {
       id: '1',
       email: 'parent@test.com',
-      password: 'password123',
+      password: hashedPassword,
       name: '父母帳號',
       role: 'parent',
       createdAt: new Date().toISOString(),
@@ -15,7 +19,7 @@ export function getDefaultData() {
     {
       id: '2',
       email: 'child@test.com',
-      password: 'password123',
+      password: hashedPassword,
       name: '子女帳號',
       role: 'child',
       points: 100,
@@ -76,7 +80,7 @@ export function getDefaultData() {
 }
 
 export async function seedDatabase() {
-  const data = getDefaultData();
+  const data = await getDefaultData();
   
   await db.write('users.json', data.users);
   await db.write('jobs.json', data.jobs);

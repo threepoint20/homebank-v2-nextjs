@@ -6,6 +6,8 @@ export async function POST(request: NextRequest) {
   try {
     const { token } = await request.json();
 
+    console.log('🔍 驗證 token:', token?.substring(0, 10) + '...');
+
     if (!token) {
       return NextResponse.json(
         { valid: false, message: '缺少 token' },
@@ -14,10 +16,21 @@ export async function POST(request: NextRequest) {
     }
 
     // 從資料庫查詢 token
+    const allTokens = await db.read<PasswordResetToken>('password-reset-tokens.json');
+    console.log('📋 資料庫中的所有 tokens:', allTokens.length);
+    
     const tokenData = await db.findOne<PasswordResetToken>(
       'password-reset-tokens.json',
       (t) => t.token === token
     );
+
+    console.log('📋 查詢結果:', tokenData ? {
+      found: true,
+      tokenId: tokenData.id,
+      used: tokenData.used,
+      expiresAt: new Date(tokenData.expiresAt).toISOString(),
+      isExpired: Date.now() > tokenData.expiresAt,
+    } : { found: false });
 
     if (!tokenData) {
       return NextResponse.json({

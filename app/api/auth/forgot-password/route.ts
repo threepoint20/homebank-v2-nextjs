@@ -46,7 +46,28 @@ export async function POST(request: NextRequest) {
       used: false,
     };
     
+    console.log('🔑 生成重設 token:', {
+      tokenId: resetToken.id,
+      userId: resetToken.userId,
+      email: resetToken.email,
+      tokenPreview: token.substring(0, 10) + '...',
+      expiresAt: new Date(expiresAt).toISOString(),
+    });
+    
+    // 確保檔案存在（讀取會自動初始化為空陣列）
+    const existingTokens = await db.read<PasswordResetToken>('password-reset-tokens.json');
+    console.log('📋 現有 tokens 數量:', existingTokens.length);
+    
     await db.create('password-reset-tokens.json', resetToken);
+    
+    console.log('✅ Token 已儲存到資料庫');
+    
+    // 驗證儲存
+    const savedToken = await db.findOne<PasswordResetToken>(
+      'password-reset-tokens.json',
+      (t) => t.token === token
+    );
+    console.log('🔍 驗證儲存:', savedToken ? '成功' : '失敗');
 
     // 建立重設連結
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 

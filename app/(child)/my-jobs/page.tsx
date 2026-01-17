@@ -460,9 +460,6 @@ export default function MyJobsPage() {
                   );
                 })}
               </div>
-                  </div>
-                ))}
-              </div>
             )}
           </div>
         </div>

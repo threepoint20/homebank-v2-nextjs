@@ -46,6 +46,25 @@ export default function RewardManagementPage() {
 
     setUser(userData);
     loadRewards();
+
+    // 當頁面重新獲得焦點時重新載入資料
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadRewards();
+      }
+    };
+
+    const handleFocus = () => {
+      loadRewards();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [router]);
 
   const loadRewards = async () => {

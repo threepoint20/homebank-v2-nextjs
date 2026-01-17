@@ -37,6 +37,25 @@ export default function AdminDashboard() {
 
     setCurrentUser(user);
     loadUsers();
+
+    // 當頁面重新獲得焦點時重新載入資料
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadUsers();
+      }
+    };
+
+    const handleFocus = () => {
+      loadUsers();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [router]);
 
   const loadUsers = async () => {

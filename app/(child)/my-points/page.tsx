@@ -42,17 +42,36 @@ export default function MyPointsPage() {
     }
 
     setUser(userData);
-    loadData();
+    loadDataWithUser(userData);
+
+    // 當頁面重新獲得焦點時重新載入資料
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadDataWithUser(userData);
+      }
+    };
+
+    const handleFocus = () => {
+      loadDataWithUser(userData);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [router]);
 
-  const loadData = async () => {
+  const loadDataWithUser = async (currentUser: User) => {
     try {
       // 載入交易記錄
       const res = await fetch('/api/points');
       const data = await res.json();
       if (data.success) {
         const myTransactions = data.transactions.filter(
-          (t: PointTransaction) => t.userId === user?.id
+          (t: PointTransaction) => t.userId === currentUser.id
         );
         setTransactions(myTransactions);
       }
@@ -61,9 +80,9 @@ export default function MyPointsPage() {
       const userRes = await fetch('/api/users');
       const userData = await userRes.json();
       if (userData.success) {
-        const currentUser = userData.users.find((u: User) => u.id === user?.id);
-        if (currentUser) {
-          setUser(prev => prev ? { ...prev, points: currentUser.points } : null);
+        const updatedUser = userData.users.find((u: User) => u.id === currentUser.id);
+        if (updatedUser) {
+          setUser(updatedUser);
         }
       }
     } catch (error) {
@@ -71,6 +90,13 @@ export default function MyPointsPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadData = async () => {
+    const userStr = localStorage.getItem('user');
+    if (!userStr) return;
+    const currentUser = JSON.parse(userStr);
+    await loadDataWithUser(currentUser);
   };
 
   const handleLogout = () => {

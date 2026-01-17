@@ -48,6 +48,25 @@ export default function MyJobsPage() {
     setUser(userData);
     // 直接傳入 userData 來載入工作
     loadJobsWithUser(userData);
+
+    // 當頁面重新獲得焦點時重新載入資料
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadJobsWithUser(userData);
+      }
+    };
+
+    const handleFocus = () => {
+      loadJobsWithUser(userData);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [router]);
 
   const loadJobsWithUser = async (currentUser: User) => {

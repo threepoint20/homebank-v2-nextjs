@@ -55,6 +55,25 @@ export default function WorkManagementPage() {
 
     setUser(userData);
     loadData();
+
+    // 當頁面重新獲得焦點時重新載入資料
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadData();
+      }
+    };
+
+    const handleFocus = () => {
+      loadData();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [router]);
 
   const loadData = async () => {

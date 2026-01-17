@@ -50,6 +50,25 @@ export default function JobHistoryPage() {
 
     setUser(userData);
     loadHistory(userData);
+
+    // 當頁面重新獲得焦點時重新載入資料
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadHistory(userData);
+      }
+    };
+
+    const handleFocus = () => {
+      loadHistory(userData);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [router]);
 
   const loadHistory = async (currentUser: User) => {

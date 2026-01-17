@@ -44,18 +44,37 @@ export default function RewardShopPage() {
     }
 
     setUser(userData);
-    loadData();
+    loadDataWithUser(userData);
+
+    // 當頁面重新獲得焦點時重新載入資料
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadDataWithUser(userData);
+      }
+    };
+
+    const handleFocus = () => {
+      loadDataWithUser(userData);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [router]);
 
-  const loadData = async () => {
+  const loadDataWithUser = async (currentUser: User) => {
     try {
       // 載入獎勵
       const rewardsRes = await fetch('/api/rewards');
       const rewardsData = await rewardsRes.json();
-      if (rewardsData.success && user) {
+      if (rewardsData.success) {
         // 只顯示自己父母建立的獎勵，且庫存 > 0
         const filteredRewards = rewardsData.rewards.filter(
-          (r: Reward) => r.stock > 0 && r.createdBy === user.parentId
+          (r: Reward) => r.stock > 0 && r.createdBy === currentUser.parentId
         );
         setRewards(filteredRewards);
       }
@@ -64,9 +83,9 @@ export default function RewardShopPage() {
       const userRes = await fetch('/api/users');
       const userData = await userRes.json();
       if (userData.success) {
-        const currentUser = userData.users.find((u: User) => u.id === user?.id);
-        if (currentUser) {
-          setUser(prev => prev ? { ...prev, points: currentUser.points } : null);
+        const updatedUser = userData.users.find((u: User) => u.id === currentUser.id);
+        if (updatedUser) {
+          setUser(updatedUser);
         }
       }
     } catch (error) {
@@ -74,6 +93,13 @@ export default function RewardShopPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadData = async () => {
+    const userStr = localStorage.getItem('user');
+    if (!userStr) return;
+    const currentUser = JSON.parse(userStr);
+    await loadDataWithUser(currentUser);
   };
 
   const handleRedeem = async (reward: Reward) => {

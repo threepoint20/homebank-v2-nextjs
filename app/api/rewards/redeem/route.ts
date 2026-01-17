@@ -68,10 +68,14 @@ export async function POST(request: NextRequest) {
     };
     await db.create('transactions.json', transaction);
 
+    // 取得更新後的獎勵資料
+    const updatedReward = await db.findOne<Reward>('rewards.json', (r) => r.id === rewardId);
+
     return NextResponse.json({ 
       success: true, 
       newPoints,
       message: '兌換成功',
+      reward: updatedReward, // 回傳更新後的獎勵資料供前端使用
     });
   } catch (error) {
     console.error('兌換獎勵失敗:', error);

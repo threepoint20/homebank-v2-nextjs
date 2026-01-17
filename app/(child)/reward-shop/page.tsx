@@ -129,6 +129,24 @@ export default function RewardShopPage() {
       const data = await res.json();
       if (data.success) {
         alert(`🎉 兌換成功！已消耗 ${reward.points} 點數`);
+        
+        // 🟢 優化：立即更新本地狀態
+        // 更新用戶點數
+        setUser(prevUser => prevUser ? { ...prevUser, points: (prevUser.points || 0) - reward.points } : null);
+        
+        // 更新獎勵庫存（如果 API 回傳了更新後的獎勵）
+        if (data.reward) {
+          setRewards(prevRewards => prevRewards.map(r => 
+            r.id === reward.id ? data.reward : r
+          ).filter(r => r.stock > 0)); // 移除庫存為 0 的獎勵
+        } else {
+          // 如果 API 沒回傳，手動減少庫存
+          setRewards(prevRewards => prevRewards.map(r => 
+            r.id === reward.id ? { ...r, stock: r.stock - 1 } : r
+          ).filter(r => r.stock > 0));
+        }
+        
+        // 背景重新載入以確保資料一致性
         loadData();
       } else {
         alert(data.error || '兌換失敗');

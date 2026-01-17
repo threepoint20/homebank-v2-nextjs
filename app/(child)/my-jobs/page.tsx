@@ -136,6 +136,10 @@ export default function MyJobsPage() {
 
       const data = await res.json();
       if (data.success) {
+        // 🟢 優化：立即更新本地狀態，讓 UI 瞬間反應
+        setJobs(prevJobs => prevJobs.map(job => 
+          job.id === jobId ? data.job : job
+        ));
         loadJobs();
       } else {
         alert(data.error || '接取工作失敗');
@@ -168,6 +172,10 @@ export default function MyJobsPage() {
       
       if (data.success) {
         alert('✅ 已提交完成，等待父母審核！');
+        // 🟢 優化：立即更新本地狀態，將工作移至「已完成」列表
+        setJobs(prevJobs => prevJobs.map(job => 
+          job.id === jobId ? data.job : job
+        ));
         loadJobs();
       } else {
         console.error('❌ 提交失敗:', data);

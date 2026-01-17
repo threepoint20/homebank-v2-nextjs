@@ -13,6 +13,13 @@ export function isJobExpired(job: Job): boolean {
   const dueDateEndOfDay = new Date(dueDate);
   dueDateEndOfDay.setHours(23, 59, 59, 999);
   
+  console.log(`🔍 檢查工作 "${job.title}" 是否過期:`, {
+    dueDate: dueDate.toISOString(),
+    dueDateEndOfDay: dueDateEndOfDay.toISOString(),
+    now: now.toISOString(),
+    isExpired: now > dueDateEndOfDay
+  });
+  
   // 如果現在時間超過截止日期的當天結束時間，就算過期
   return now > dueDateEndOfDay;
 }

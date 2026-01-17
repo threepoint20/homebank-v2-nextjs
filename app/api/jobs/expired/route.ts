@@ -9,19 +9,34 @@ import { findExpiredJobs, handleExpiredJob } from '@/lib/utils/expired-jobs';
  */
 export async function POST(request: NextRequest) {
   try {
+    console.log('⏰ 開始檢查過期工作...');
+    
     const jobs = await db.read<Job>('jobs.json');
     const users = await db.read<User>('users.json');
     const transactions = await db.read<PointTransaction>('transactions.json');
+    
+    console.log(`📋 總共有 ${jobs.length} 個工作`);
     
     // 找出所有過期的工作
     const expiredJobs = findExpiredJobs(jobs);
     
     console.log(`⏰ 檢查到 ${expiredJobs.length} 個過期工作`);
     
+    if (expiredJobs.length > 0) {
+      console.log('過期工作列表:', expiredJobs.map(j => ({
+        id: j.id,
+        title: j.title,
+        dueDate: j.dueDate,
+        status: j.status
+      })));
+    }
+    
     const processedJobs: Job[] = [];
     const newTransactions: PointTransaction[] = [];
     
     for (const job of expiredJobs) {
+      console.log(`🔄 處理過期工作: ${job.title} (ID: ${job.id})`);
+      
       const { updatedJob, transaction } = handleExpiredJob(job);
       
       // 更新工作狀態
@@ -57,6 +72,8 @@ export async function POST(request: NextRequest) {
       }
     }
     
+    console.log(`✅ 完成處理 ${processedJobs.length} 個過期工作`);
+    
     return NextResponse.json({
       success: true,
       message: `已處理 ${processedJobs.length} 個過期工作`,
@@ -65,7 +82,7 @@ export async function POST(request: NextRequest) {
       transactions: newTransactions,
     });
   } catch (error) {
-    console.error('處理過期工作失敗:', error);
+    console.error('❌ 處理過期工作失敗:', error);
     return NextResponse.json(
       { success: false, error: '處理過期工作失敗' },
       { status: 500 }

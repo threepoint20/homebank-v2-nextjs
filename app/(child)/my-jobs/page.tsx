@@ -74,11 +74,19 @@ export default function MyJobsPage() {
 
   const loadJobsWithUser = async (currentUser: User) => {
     try {
+      console.log('🔄 開始載入工作資料...');
+      
       // 先處理過期工作
-      await fetch('/api/jobs/expired', { method: 'POST' });
+      console.log('⏰ 呼叫過期工作 API...');
+      const expiredRes = await fetch('/api/jobs/expired', { method: 'POST' });
+      const expiredData = await expiredRes.json();
+      console.log('⏰ 過期工作處理結果:', expiredData);
       
       // 再檢查並生成週期性工作
-      await fetch('/api/jobs/recurring', { method: 'POST' });
+      console.log('🔄 呼叫週期性工作 API...');
+      const recurringRes = await fetch('/api/jobs/recurring', { method: 'POST' });
+      const recurringData = await recurringRes.json();
+      console.log('🔄 週期性工作生成結果:', recurringData);
       
       const res = await fetch('/api/jobs');
       const data = await res.json();

@@ -144,19 +144,22 @@ class BlobDatabase {
   }
 
   // 初始化資料庫（僅在首次使用時）
-  async initialize() {
+  async initialize(force: boolean = false) {
     const { getDefaultData } = await import('./seed');
     const defaultData = await getDefaultData();
     
     // 檢查是否已初始化
     const users = await this.read('users.json');
-    if (users.length === 0) {
+    if (users.length === 0 || force) {
       await this.write('users.json', defaultData.users);
       await this.write('jobs.json', defaultData.jobs);
       await this.write('rewards.json', defaultData.rewards);
       await this.write('transactions.json', defaultData.transactions);
       console.log('✅ Blob 資料庫初始化完成！');
+      return true;
     }
+    console.log('ℹ️ 資料庫已存在，跳過初始化');
+    return false;
   }
 
   // 清空所有資料（謹慎使用）

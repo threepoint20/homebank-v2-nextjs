@@ -22,20 +22,28 @@ export default function InitPage() {
     }
   };
 
-  const initializeDatabase = async () => {
+  const initializeDatabase = async (force: boolean = false) => {
     try {
       setStatus('loading');
-      setMessage('正在初始化資料庫...');
+      setMessage(force ? '正在強制重新初始化資料庫...' : '正在初始化資料庫...');
       
       const response = await fetch('/api/init', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ force }),
       });
       
       const data = await response.json();
       
       if (data.success) {
         setStatus('success');
-        setMessage(`✅ 初始化成功！使用 ${data.storage} 儲存`);
+        if (data.initialized) {
+          setMessage(`✅ 初始化成功！使用 ${data.storage} 儲存`);
+        } else {
+          setMessage(`ℹ️ 資料庫已存在，未重新初始化。使用 ${data.storage} 儲存`);
+        }
         // 重新檢查狀態
         await checkStatus();
       } else {
@@ -100,11 +108,19 @@ export default function InitPage() {
             </button>
 
             <button
-              onClick={initializeDatabase}
+              onClick={() => initializeDatabase(false)}
               disabled={status === 'loading'}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
             >
               {status === 'loading' ? '初始化中...' : '初始化資料庫'}
+            </button>
+
+            <button
+              onClick={() => initializeDatabase(true)}
+              disabled={status === 'loading'}
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
+            >
+              {status === 'loading' ? '重新初始化中...' : '⚠️ 強制重新初始化（會清除所有資料）'}
             </button>
           </div>
 

@@ -118,29 +118,36 @@ class BlobDatabase {
   /**
    * 寫入資料到 Blob Storage
    * 
-   * 優化說明：
-   * - 移除了「先刪除再上傳」的邏輯
-   * - 使用 put() 的 addRandomSuffix: false 參數，自動覆蓋同名檔案
-   * - 減少 2 次網路請求（list + del），提升約 50% 寫入效能
-   * - 寫入後自動更新 URL 快取
+   * 注意：Vercel Blob 在使用 addRandomSuffix: false 時不會自動覆蓋
+   * 需要先刪除舊檔案再上傳新檔案
    */
   async write<T>(filename: string, data: T[]): Promise<void> {
     const key = this.getKey(filename);
     
     try {
+      // 先刪除舊檔案（如果存在）
+      const existingUrl = await this.getBlobUrl(filename);
+      if (existingUrl) {
+        try {
+          await del(existingUrl);
+          console.log(`🗑️ 刪除舊檔案: ${filename}`);
+        } catch (deleteError) {
+          console.log(`ℹ️ 刪除舊檔案失敗: ${filename}`);
+        }
+      }
+
       // 將資料轉換為 JSON 字串
       const jsonString = JSON.stringify(data, null, 2);
 
       // 上傳到 Vercel Blob
-      // addRandomSuffix: false 會自動覆蓋同名檔案，不需要手動刪除
       const result = await put(key, jsonString, {
         access: 'public',
-        addRandomSuffix: false, // 使用固定檔名，自動覆蓋舊檔案
+        addRandomSuffix: false, // 使用固定檔名
         contentType: 'application/json',
         cacheControlMaxAge: 0, // 不快取，確保總是讀取最新資料
       });
 
-      // 更新快取，這樣下次讀取時就不用再 list 了
+      // 更新快取
       this.urlCache.set(filename, result.url);
       
       console.log(`✅ 成功寫入 ${filename}, 項目數: ${data.length}`);

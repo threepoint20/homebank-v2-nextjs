@@ -289,6 +289,14 @@ export default function WorkManagementPage() {
 
       const data = await res.json();
       if (data.success) {
+        console.log('✅ 工作建立成功:', data.job);
+        console.log('📋 週期性設定:', {
+          isRecurring: data.job.isRecurring,
+          recurringPattern: data.job.recurringPattern,
+          recurringDays: data.job.recurringDays,
+          recurringEndDate: data.job.recurringEndDate
+        });
+        
         // 如果勾選了加入行事曆，自動下載 .ics 檔案
         if (formData.sendCalendarInvite && formData.assignedTo && formData.dueDate) {
           await downloadCalendarFile(data.job);
@@ -730,14 +738,16 @@ export default function WorkManagementPage() {
                             🔄 {
                               job.recurringPattern === 'daily' ? '每天' :
                               job.recurringPattern === 'weekly' ? '每週' :
-                              '每月'
+                              job.recurringPattern === 'monthly' ? '每月' : '週期性'
                             }
                           </span>
                         </div>
                       ) : job.parentJobId ? (
-                        <span className="text-xs text-gray-500">週期生成</span>
+                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                          📅 週期生成
+                        </span>
                       ) : (
-                        <span className="text-xs text-gray-400">-</span>
+                        <span className="text-xs text-gray-400">單次</span>
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -886,6 +896,11 @@ export default function WorkManagementPage() {
                 <p className="text-xs text-gray-500 mt-1">
                   ⏰ 逾期規則：+1小時 7折、+1.5小時 5折、+2小時 3折、超過2小時 0點、超過當天扣點
                 </p>
+                {formData.isRecurring && (
+                  <p className="text-xs text-indigo-600 mt-1">
+                    💡 週期性工作：所有重複項目將使用此時間作為每日截止時間
+                  </p>
+                )}
               </div>
               
               {/* 週期性工作選項 */}
@@ -902,7 +917,7 @@ export default function WorkManagementPage() {
                       🔄 週期性工作
                     </div>
                     <div className="text-xs text-indigo-700 mt-1">
-                      自動重複建立工作，不需每天手動設定
+                      自動生成多個重複項目，每個項目完成都獲得完整點數
                     </div>
                   </div>
                 </label>

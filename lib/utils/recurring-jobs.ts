@@ -102,83 +102,49 @@ export function shouldGenerateRecurringJob(job: Job): boolean {
 }
 
 /**
- * 生成下一個週期性工作（只生成本週內的）
+ * 為週期性工作生成所有需要的重複項目
+ * 從現在開始到結束日期（或未來 30 天）
  */
-export function generateNextRecurringJob(job: Job): Job | null {
-  if (!job.isRecurring || !job.dueDate || !job.recurringPattern) {
-    return null;
-  }
-  
-  const currentDueDate = new Date(job.dueDate);
-  const nextDueDate = calculateNextDueDate(
-    currentDueDate,
-    job.recurringPattern,
-    job.recurringDays
-  );
-  
-  if (!nextDueDate) return null;
-  
-  // 檢查下一次是否在本週內
-  const thisWeek = getThisWeekRange();
-  if (nextDueDate > thisWeek.end) {
-    console.log(`⏭️ 下一次工作 "${job.title}" 在 ${nextDueDate.toISOString()} 不在本週內，跳過`);
-    return null;
-  }
-  
-  // 如果有結束日期，檢查下一次是否超過
-  if (job.recurringEndDate) {
-    const endDate = new Date(job.recurringEndDate);
-    if (nextDueDate > endDate) return null;
-  }
-  
-  // 創建新工作
-  const newJob: Job = {
-    ...job,
-    id: Date.now().toString() + '-' + Math.random().toString(36).substr(2, 9),
-    dueDate: nextDueDate.toISOString(),
-    status: job.assignedTo ? 'in_progress' : 'pending',
-    createdAt: new Date().toISOString(),
-    assignedAt: job.assignedTo ? new Date().toISOString() : undefined,
-    completedAt: undefined,
-    approvedAt: undefined,
-    actualPoints: undefined,
-    discount: undefined,
-    parentJobId: job.id, // 記錄父工作 ID
-  };
-  
-  return newJob;
-}
-
-/**
- * 為週期性工作生成本週所有需要的工作
- */
-export function generateThisWeekRecurringJobs(job: Job, existingJobs: Job[]): Job[] {
+export function generateAllRecurringJobs(job: Job, existingJobs: Job[]): Job[] {
   if (!job.isRecurring || !job.dueDate || !job.recurringPattern) {
     return [];
   }
   
   const newJobs: Job[] = [];
-  const thisWeek = getThisWeekRange();
   const now = new Date();
   
-  console.log(`📅 本週範圍: ${thisWeek.start.toISOString()} ~ ${thisWeek.end.toISOString()}`);
+  // 取得原始截止時間（只取時間部分）
+  const originalDueDate = new Date(job.dueDate);
+  const dueHour = originalDueDate.getHours();
+  const dueMinute = originalDueDate.getMinutes();
   
-  // 根據週期類型生成本週的所有工作
-  let currentDate = new Date(job.dueDate);
-  
-  // 如果原始截止日期在本週之前，從本週開始計算
-  if (currentDate < thisWeek.start) {
-    currentDate = new Date(thisWeek.start);
-    // 調整到正確的時間
-    const originalTime = new Date(job.dueDate);
-    currentDate.setHours(originalTime.getHours(), originalTime.getMinutes(), 0, 0);
+  // 如果沒有設定結束日期，預設生成未來 30 天
+  let endDate: Date;
+  if (job.recurringEndDate) {
+    endDate = new Date(job.recurringEndDate);
+  } else {
+    endDate = new Date(now);
+    endDate.setDate(endDate.getDate() + 30);
   }
   
-  // 生成本週內的所有工作
-  const maxIterations = 100; // 防止無限迴圈
+  console.log(`📅 生成週期性工作: ${job.title}`);
+  console.log(`   開始: ${now.toISOString()}`);
+  console.log(`   結束: ${endDate.toISOString()}`);
+  console.log(`   模式: ${job.recurringPattern}`);
+  
+  // 從今天開始生成
+  let currentDate = new Date(now);
+  currentDate.setHours(dueHour, dueMinute, 0, 0);
+  
+  // 如果今天的時間已經過了，從明天開始
+  if (currentDate <= now) {
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+  
+  const maxIterations = 365; // 最多生成 365 個（防止無限迴圈）
   let iterations = 0;
   
-  while (currentDate <= thisWeek.end && iterations < maxIterations) {
+  while (currentDate <= endDate && iterations < maxIterations) {
     iterations++;
     
     // 檢查這個日期是否符合週期規則
@@ -194,8 +160,7 @@ export function generateThisWeekRecurringJobs(job: Job, existingJobs: Job[]): Jo
       shouldGenerate = currentDate.getDate() === originalDate.getDate();
     }
     
-    // 只生成未來的工作（不生成已過期的）
-    if (shouldGenerate && currentDate > now) {
+    if (shouldGenerate) {
       // 檢查是否已存在
       const exists = existingJobs.some(j => 
         (j.id === job.id || j.parentJobId === job.id) &&
@@ -203,9 +168,15 @@ export function generateThisWeekRecurringJobs(job: Job, existingJobs: Job[]): Jo
       );
       
       if (!exists) {
+        // 格式化日期為 M/D 格式
+        const month = currentDate.getMonth() + 1;
+        const day = currentDate.getDate();
+        const dateStr = `${month}/${day}`;
+        
         const newJob: Job = {
           ...job,
           id: Date.now().toString() + '-' + Math.random().toString(36).substr(2, 9),
+          title: `${job.title}(${dateStr})`, // 在標題後加上日期
           dueDate: currentDate.toISOString(),
           status: job.assignedTo ? 'in_progress' : 'pending',
           createdAt: new Date().toISOString(),
@@ -215,10 +186,15 @@ export function generateThisWeekRecurringJobs(job: Job, existingJobs: Job[]): Jo
           actualPoints: undefined,
           discount: undefined,
           parentJobId: job.id,
+          // 移除週期性標記，因為這是生成的項目
+          isRecurring: false,
+          recurringPattern: undefined,
+          recurringDays: undefined,
+          recurringEndDate: undefined,
         };
         
         newJobs.push(newJob);
-        console.log(`✅ 生成工作: ${newJob.title} (${currentDate.toISOString()})`);
+        console.log(`   ✅ 生成: ${currentDate.toLocaleDateString('zh-TW')} ${dueHour}:${dueMinute.toString().padStart(2, '0')}`);
       }
     }
     
@@ -226,6 +202,8 @@ export function generateThisWeekRecurringJobs(job: Job, existingJobs: Job[]): Jo
     currentDate = new Date(currentDate);
     currentDate.setDate(currentDate.getDate() + 1);
   }
+  
+  console.log(`   📊 總共生成 ${newJobs.length} 個工作`);
   
   return newJobs;
 }

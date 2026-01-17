@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { Job } from '@/lib/types';
-import { generateThisWeekRecurringJobs } from '@/lib/utils/recurring-jobs';
+import { generateAllRecurringJobs } from '@/lib/utils/recurring-jobs';
 
 /**
- * 檢查並生成週期性工作（只生成本週內的）
- * 這個 API 可以被定期呼叫來自動生成新的週期性工作
+ * 檢查並生成週期性工作的所有重複項目
  */
 export async function POST(request: NextRequest) {
   try {
@@ -18,10 +17,10 @@ export async function POST(request: NextRequest) {
     console.log(`📋 檢查 ${recurringJobs.length} 個週期性工作`);
     
     for (const job of recurringJobs) {
-      // 為每個週期性工作生成本週所有需要的工作
-      const weekJobs = generateThisWeekRecurringJobs(job, jobs);
+      // 為每個週期性工作生成所有需要的重複項目
+      const generatedJobs = generateAllRecurringJobs(job, jobs);
       
-      for (const newJob of weekJobs) {
+      for (const newJob of generatedJobs) {
         await db.create('jobs.json', newJob);
         newJobs.push(newJob);
         console.log(`✅ 生成新的週期性工作: ${newJob.title} (截止: ${newJob.dueDate})`);
@@ -30,7 +29,7 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json({ 
       success: true, 
-      message: `已生成 ${newJobs.length} 個本週工作`,
+      message: `已生成 ${newJobs.length} 個重複工作`,
       newJobs: newJobs.length,
       jobs: newJobs
     });

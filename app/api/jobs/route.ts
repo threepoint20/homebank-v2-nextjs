@@ -33,7 +33,20 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { title, description, points, createdBy, assignedTo, status, dueDate, sendCalendarInvite } = body;
+    const { 
+      title, 
+      description, 
+      points, 
+      createdBy, 
+      assignedTo, 
+      status, 
+      dueDate, 
+      sendCalendarInvite,
+      isRecurring,
+      recurringPattern,
+      recurringDays,
+      recurringEndDate
+    } = body;
 
     if (!title || !points || !createdBy) {
       return NextResponse.json(
@@ -56,6 +69,24 @@ export async function POST(request: NextRequest) {
     // 如果有截止日期
     if (dueDate) {
       newJob.dueDate = dueDate;
+    }
+
+    // 如果是週期性工作，加入週期設定
+    if (isRecurring) {
+      newJob.isRecurring = true;
+      newJob.recurringPattern = recurringPattern;
+      if (recurringPattern === 'weekly' && recurringDays) {
+        newJob.recurringDays = recurringDays;
+      }
+      if (recurringEndDate) {
+        newJob.recurringEndDate = recurringEndDate;
+      }
+      console.log('🔄 建立週期性工作:', {
+        title,
+        recurringPattern,
+        recurringDays,
+        recurringEndDate
+      });
     }
 
     // 如果有指派給特定子女

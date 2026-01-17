@@ -20,9 +20,12 @@ interface Job {
   points: number;
   createdBy: string;
   assignedTo?: string;
+  dueDate?: string;
   status: 'pending' | 'in_progress' | 'completed' | 'approved';
   createdAt: string;
   completedAt?: string;
+  actualPoints?: number;
+  discount?: number;
 }
 
 export default function MyJobsPage() {
@@ -121,6 +124,57 @@ export default function MyJobsPage() {
   const loadJobs = async () => {
     if (!user) return;
     await loadJobsWithUser(user);
+  };
+
+  // 計算截止日期狀態
+  const getDueDateStatus = (dueDate?: string) => {
+    if (!dueDate) return null;
+    
+    const now = new Date();
+    const due = new Date(dueDate);
+    const diffMs = due.getTime() - now.getTime();
+    const diffHours = diffMs / (1000 * 60 * 60);
+    
+    if (diffHours < 0) {
+      // 已逾期
+      return {
+        color: 'text-red-600',
+        bgColor: 'bg-red-50',
+        borderColor: 'border-red-200',
+        icon: '⚠️',
+        text: '已逾期',
+      };
+    } else if (diffHours < 2) {
+      // 即將到期（2小時內）
+      return {
+        color: 'text-orange-600',
+        bgColor: 'bg-orange-50',
+        borderColor: 'border-orange-200',
+        icon: '⏰',
+        text: '即將到期',
+      };
+    } else {
+      // 充裕時間
+      return {
+        color: 'text-green-600',
+        bgColor: 'bg-green-50',
+        borderColor: 'border-green-200',
+        icon: '✓',
+        text: '充裕時間',
+      };
+    }
+  };
+
+  // 格式化截止日期
+  const formatDueDate = (dueDate?: string) => {
+    if (!dueDate) return null;
+    const date = new Date(dueDate);
+    return date.toLocaleString('zh-TW', {
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
   const handleAcceptJob = async (jobId: string) => {
@@ -320,29 +374,39 @@ export default function MyJobsPage() {
               <h2 className="text-xl font-semibold text-gray-900">進行中的工作</h2>
             </div>
             <div className="p-6 space-y-4">
-              {myJobs.map((job) => (
-                <div key={job.id} className="border border-orange-200 bg-orange-50 rounded-lg p-4">
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-gray-900">{job.title}</h3>
-                      <p className="text-sm text-gray-600 mt-1">{job.description}</p>
+              {myJobs.map((job) => {
+                const dueDateStatus = getDueDateStatus(job.dueDate);
+                return (
+                  <div key={job.id} className="border border-orange-200 bg-orange-50 rounded-lg p-4">
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex-1">
+                        <h3 className="text-lg font-semibold text-gray-900">{job.title}</h3>
+                        <p className="text-sm text-gray-600 mt-1">{job.description}</p>
+                        {job.dueDate && (
+                          <div className={`mt-2 inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${dueDateStatus?.bgColor} ${dueDateStatus?.color} ${dueDateStatus?.borderColor} border`}>
+                            <span>{dueDateStatus?.icon}</span>
+                            <span>截止：{formatDueDate(job.dueDate)}</span>
+                            <span className="ml-1">({dueDateStatus?.text})</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-right ml-4">
+                        <div className="text-2xl font-bold text-blue-600">{job.points}</div>
+                        <div className="text-xs text-gray-500">點數</div>
+                      </div>
                     </div>
-                    <div className="text-right ml-4">
-                      <div className="text-2xl font-bold text-blue-600">{job.points}</div>
-                      <div className="text-xs text-gray-500">點數</div>
+                    <div className="flex justify-end mt-4">
+                      <button
+                        onClick={() => handleCompleteJob(job.id)}
+                        disabled={actionLoading === job.id}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50"
+                      >
+                        {actionLoading === job.id ? '處理中...' : '✓ 提交完成'}
+                      </button>
                     </div>
                   </div>
-                  <div className="flex justify-end mt-4">
-                    <button
-                      onClick={() => handleCompleteJob(job.id)}
-                      disabled={actionLoading === job.id}
-                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50"
-                    >
-                      {actionLoading === job.id ? '處理中...' : '✓ 提交完成'}
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -363,27 +427,39 @@ export default function MyJobsPage() {
               </div>
             ) : (
               <div className="space-y-4">
-                {availableJobs.map((job) => (
-                  <div key={job.id} className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition">
-                    <div className="flex justify-between items-start mb-2">
-                      <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-gray-900">{job.title}</h3>
-                        <p className="text-sm text-gray-600 mt-1">{job.description}</p>
+                {availableJobs.map((job) => {
+                  const dueDateStatus = getDueDateStatus(job.dueDate);
+                  return (
+                    <div key={job.id} className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex-1">
+                          <h3 className="text-lg font-semibold text-gray-900">{job.title}</h3>
+                          <p className="text-sm text-gray-600 mt-1">{job.description}</p>
+                          {job.dueDate && (
+                            <div className={`mt-2 inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${dueDateStatus?.bgColor} ${dueDateStatus?.color} ${dueDateStatus?.borderColor} border`}>
+                              <span>{dueDateStatus?.icon}</span>
+                              <span>截止：{formatDueDate(job.dueDate)}</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-right ml-4">
+                          <div className="text-2xl font-bold text-blue-600">{job.points}</div>
+                          <div className="text-xs text-gray-500">點數</div>
+                        </div>
                       </div>
-                      <div className="text-right ml-4">
-                        <div className="text-2xl font-bold text-blue-600">{job.points}</div>
-                        <div className="text-xs text-gray-500">點數</div>
+                      <div className="flex justify-end mt-4">
+                        <button
+                          onClick={() => handleAcceptJob(job.id)}
+                          disabled={actionLoading === job.id}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+                        >
+                          {actionLoading === job.id ? '處理中...' : '接取工作'}
+                        </button>
                       </div>
                     </div>
-                    <div className="flex justify-end mt-4">
-                      <button
-                        onClick={() => handleAcceptJob(job.id)}
-                        disabled={actionLoading === job.id}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
-                      >
-                        {actionLoading === job.id ? '處理中...' : '接取工作'}
-                      </button>
-                    </div>
+                  );
+                })}
+              </div>
                   </div>
                 ))}
               </div>

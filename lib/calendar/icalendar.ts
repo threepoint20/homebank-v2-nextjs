@@ -35,8 +35,9 @@ export function generateJobICS(
   
   // 建立描述內容
   let description = escapeICSText(job.description || '');
-  description += `\\n\\n💰 獎勵點數：${job.points} 點`;
-  description += `\\n👤 指派者：${parentName}`;
+  description += `\\n\\n👤 指派給：${childName}`;
+  description += `\\n👨‍👩‍👧‍👦 指派者：${parentName}`;
+  description += `\\n💰 獎勵點數：${job.points} 點`;
   
   if (dueDate) {
     description += `\\n\\n⏰ 逾期規則：`;
@@ -69,7 +70,7 @@ DTSTART:${formatICSDate(startDate)}`;
   }
 
   icsContent += `
-SUMMARY:🎯 ${escapeICSText(job.title)}
+SUMMARY:🎯 ${escapeICSText(job.title)} - ${escapeICSText(childName)}
 DESCRIPTION:${description}
 LOCATION:HomeBank 家庭銀行
 STATUS:CONFIRMED

@@ -7,10 +7,10 @@ import { PasswordService } from '@/lib/auth/password';
 export async function GET() {
   try {
     const users = await db.read<User>('users.json');
-    
+
     // 移除密碼欄位
     const safeUsers = users.map(({ password, ...user }) => user);
-    
+
     return NextResponse.json({ success: true, users: safeUsers });
   } catch (error) {
     console.error('取得用戶失敗:', error);
@@ -27,10 +27,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { email, password, name, avatar, parentId } = body;
 
-    console.log('📝 收到新增用戶請求:', { email, name, hasAvatar: !!avatar, parentId });
-
     if (!email || !password || !name) {
-      console.error('❌ 缺少必要欄位:', { email: !!email, password: !!password, name: !!name });
       return NextResponse.json(
         { success: false, error: '缺少必要欄位' },
         { status: 400 }
@@ -38,10 +35,8 @@ export async function POST(request: NextRequest) {
     }
 
     // 檢查 email 是否已存在
-    console.log('🔍 檢查 email 是否已存在...');
     const existing = await db.findOne<User>('users.json', (u) => u.email === email);
     if (existing) {
-      console.error('❌ Email 已被使用:', email);
       return NextResponse.json(
         { success: false, error: 'Email 已被使用' },
         { status: 400 }
@@ -49,22 +44,19 @@ export async function POST(request: NextRequest) {
     }
 
     // 驗證密碼強度
-    console.log('🔐 驗證密碼強度...');
     const passwordValidation = PasswordService.validatePasswordStrength(password);
     if (!passwordValidation.isValid) {
-      console.error('❌ 密碼強度不足:', passwordValidation.errors);
       return NextResponse.json(
-        { 
-          success: false, 
+        {
+          success: false,
           error: '密碼強度不足',
-          errors: passwordValidation.errors 
+          errors: passwordValidation.errors,
         },
         { status: 400 }
       );
     }
 
     // 雜湊密碼
-    console.log('🔒 雜湊密碼中...');
     const hashedPassword = await PasswordService.hash(password);
 
     const newUser: User = {
@@ -73,25 +65,18 @@ export async function POST(request: NextRequest) {
       password: hashedPassword,
       name,
       role: 'child',
-      parentId: parentId || undefined, // 設定父母 ID
+      parentId: parentId || undefined,
       points: 0,
       avatar: avatar || '',
       createdAt: new Date().toISOString(),
     };
 
-    console.log('💾 準備建立新用戶:', { id: newUser.id, email: newUser.email, parentId: newUser.parentId });
     await db.create('users.json', newUser);
-    console.log('✅ 用戶建立成功!');
 
     const { password: _, ...safeUser } = newUser;
     return NextResponse.json({ success: true, user: safeUser });
   } catch (error: any) {
-    console.error('❌ 新增用戶失敗:', error);
-    console.error('錯誤詳情:', {
-      message: error?.message,
-      stack: error?.stack,
-      name: error?.name
-    });
+    console.error('新增用戶失敗:', error);
     return NextResponse.json(
       { success: false, error: `新增用戶失敗: ${error?.message || '未知錯誤'}` },
       { status: 500 }

@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { randomInt } from 'crypto';
 
 export class PasswordService {
   private static readonly SALT_ROUNDS = 12; // 高安全性的 salt rounds
@@ -70,35 +71,42 @@ export class PasswordService {
     return {
       isValid: errors.length === 0,
       errors,
-      score
+      score,
     };
   }
 
   /**
-   * 生成安全的隨機密碼
+   * 生成安全的隨機密碼（使用 Node.js crypto 模組，符合密碼學安全要求）
    */
   static generateSecurePassword(length: number = 12): string {
     const lowercase = 'abcdefghijklmnopqrstuvwxyz';
     const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     const numbers = '0123456789';
     const symbols = '!@#$%^&*()_+-=[]{}|;:,.<>?';
-    
+
     const allChars = lowercase + uppercase + numbers + symbols;
-    
-    let password = '';
-    
+
     // 確保至少包含每種類型的字元
-    password += lowercase[Math.floor(Math.random() * lowercase.length)];
-    password += uppercase[Math.floor(Math.random() * uppercase.length)];
-    password += numbers[Math.floor(Math.random() * numbers.length)];
-    password += symbols[Math.floor(Math.random() * symbols.length)];
-    
+    const required = [
+      lowercase[randomInt(lowercase.length)],
+      uppercase[randomInt(uppercase.length)],
+      numbers[randomInt(numbers.length)],
+      symbols[randomInt(symbols.length)],
+    ];
+
     // 填充剩餘長度
-    for (let i = 4; i < length; i++) {
-      password += allChars[Math.floor(Math.random() * allChars.length)];
+    const extra: string[] = [];
+    for (let i = required.length; i < length; i++) {
+      extra.push(allChars[randomInt(allChars.length)]);
     }
-    
-    // 打亂密碼字元順序
-    return password.split('').sort(() => Math.random() - 0.5).join('');
+
+    // 使用 crypto 打亂順序（Fisher-Yates shuffle）
+    const chars = [...required, ...extra];
+    for (let i = chars.length - 1; i > 0; i--) {
+      const j = randomInt(i + 1);
+      [chars[i], chars[j]] = [chars[j], chars[i]];
+    }
+
+    return chars.join('');
   }
 }

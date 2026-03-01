@@ -5,25 +5,16 @@ import { Job, PointTransaction } from '../types';
  */
 export function isJobExpired(job: Job): boolean {
   if (!job.dueDate) return false;
-  
+
   const dueDate = new Date(job.dueDate);
   const now = new Date();
-  
+
   // 取得截止日期的日期部分（年月日）
   const dueDateOnly = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
   const nowDateOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  
+
   // 如果今天的日期大於截止日期的日期，就算過期
-  const isExpired = nowDateOnly > dueDateOnly;
-  
-  console.log(`🔍 檢查工作 "${job.title}" 是否過期:`, {
-    dueDate: dueDate.toISOString(),
-    dueDateOnly: dueDateOnly.toISOString(),
-    nowDateOnly: nowDateOnly.toISOString(),
-    isExpired
-  });
-  
-  return isExpired;
+  return nowDateOnly > dueDateOnly;
 }
 
 /**
@@ -49,7 +40,7 @@ export function handleExpiredJob(job: Job): {
   let transaction: PointTransaction | null = null;
   if (job.assignedTo) {
     transaction = {
-      id: Date.now().toString() + '-' + Math.random().toString(36).substr(2, 9),
+      id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 11),
       userId: job.assignedTo,
       amount: -job.points, // 負數表示扣點
       type: 'earn', // 仍然是 earn 類型，但金額為負

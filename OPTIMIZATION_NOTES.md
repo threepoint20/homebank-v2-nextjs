@@ -92,6 +92,20 @@
 
 ---
 
+---
+
+## 8. `app/api/auth/reset-password/route.ts`
+
+**問題（Build 錯誤修復）：**
+- 呼叫 `db.read()` 時傳入了第二個參數 `true`（`bustCache`），但此參數已在優化 `lib/db/index.ts` 時移除，導致 TypeScript 型別錯誤，build 失敗。
+- 同樣有大量 debug `console.log`，記錄每個步驟（重試次數、token 查詢結果、密碼雜湊進度等）。
+
+**改動：**
+- 移除 `db.read()` 呼叫中的第二個參數 `true`，改為 `db.read<PasswordResetToken>('password-reset-tokens.json')`，修復 build 錯誤。
+- 移除所有 debug `console.log`，保留 `catch` 的 `console.error`。
+
+---
+
 ## 改動總覽
 
 | 檔案 | 改動類型 |
@@ -103,3 +117,4 @@
 | `app/api/jobs/[id]/route.ts` | 移除冗餘 DB 讀取、移除 debug console.log |
 | `lib/auth/password.ts` | 改用密碼學安全亂數（crypto.randomInt + Fisher-Yates） |
 | `lib/db/index.ts` | 移除未使用的 bustCache 參數 |
+| `app/api/auth/reset-password/route.ts` | 修復 build 錯誤（移除多餘參數）、移除 debug console.log |
